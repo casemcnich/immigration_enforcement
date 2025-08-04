@@ -4,16 +4,100 @@
 #if we end up scraping
 library('rvest')
 #for pulling the graph data
-library('jsonlite')
-library('stringr')
-library('tidyr')
+
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(progress)
+
 #trac = read_html('https://trac.syr.edu/phptools/immigration/arrest/table')
 
-setwd("C:/Users/casem/Box/undoc/trac")
+setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement/code")
 
-### county level arrests by arrest type
+### county level arrests by arrest method
 ############################################################
-options(timeout = 1000) #may need to adjust this depending on the computer
+
+# Progress bar
+pb <- progress_bar$new(
+  total = total_counties * arrest_methods,
+  format = "  downloading [:bar] :percent eta: :eta",
+  clear = FALSE
+)
+
+# Create an empty list to store results
+trac_by_arrest_type <- list()
+index <- 1
+
+for (i in 1:397) { #397 total counties
+  for (j in 1:arrest_methods) { #25 arrest methods
+    pb$tick()
+    
+    url <- paste0(
+      "https://trac.syr.edu/phptools/immigration/arrest/graph.php?stat=count&timescale=fymon&timeunit=number&county=",
+      i, "&arrest_method=", j
+    )
+    
+    # Safely fetch JSON, skip if error
+    json <- tryCatch({
+      fromJSON(url)
+    }, error = function(e) return(NULL))
+    
+    # Build dataframe
+    df <- data.frame(
+      title = json[[1]],
+      month = json[[4]]$fymon,
+      count = json[[4]]$number,
+      percent = json[[4]]$percent,
+      stringsAsFactors = FALSE
+    )
+    
+    all_data[[index]] <- df
+    index <- index + 1
+  }
+}
+
+# Combine all collected dataframes
+county_arrests <- bind_rows(all_data)
+
+# Fix column names
+colnames(county_arrests) <- c("title", "month", "count", "percent")
+
+# Clean data types
+county_arrests <- county_arrests %>%
+  mutate(
+    month = as.Date(paste0(month, "-01")),
+    count = as.numeric(count),
+    percent = as.numeric(percent)
+  )
+
+# Split "title" into county and arrest method (e.g., "Cochise - Border Patrol")
+if (all(grepl(" - ", county_arrests$title))) {
+  county_arrests <- separate(county_arrests, title, into = c("county", "arrest_method"), sep = " - ")
+} else {
+  warning("MISSING seperator ' - '")
+}
+
+# View final structure
+str(county_arrests)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #new loop - county level apprehensions
 county_arrests <- NULL
