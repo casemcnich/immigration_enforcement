@@ -1,5 +1,5 @@
 #######################
-## TRAC data 
+## TRAC data - NOT IN USE ANYMORE
 #######################
 #if we end up scraping
 library('rvest')
@@ -10,95 +10,65 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(progress)
+library(future.apply)
 
 #trac = read_html('https://trac.syr.edu/phptools/immigration/arrest/table')
 
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement/code")
 
-### county level arrests by arrest method
-############################################################
+### county level arrests by arrest method ####
+plan(multisession, workers = 16) # adjust workers based on your CPU
 
-# Progress bar
-pb <- progress_bar$new(
-  total = total_counties * arrest_methods,
-  format = "  downloading [:bar] :percent eta: :eta",
-  clear = FALSE
-)
+# county and arrest method parameters
+county_ids <- 1:2        # Use 1:397 for full run
+arrest_methods <- 1:25
 
-# Create an empty list to store results
-trac_by_arrest_type <- list()
-index <- 1
+param_grid <- expand.grid(county = county_ids, method = arrest_methods)
 
-for (i in 1:397) { #397 total counties
-  for (j in 1:arrest_methods) { #25 arrest methods
-    pb$tick()
-    
-    url <- paste0(
-      "https://trac.syr.edu/phptools/immigration/arrest/graph.php?stat=count&timescale=fymon&timeunit=number&county=",
-      i, "&arrest_method=", j
-    )
-    
-    # Safely fetch JSON, skip if error
-    json <- tryCatch({
-      fromJSON(url)
-    }, error = function(e) return(NULL))
-    
-    # Build dataframe
-    df <- data.frame(
-      title = json[[1]],
-      month = json[[4]]$fymon,
-      count = json[[4]]$number,
-      percent = json[[4]]$percent,
-      stringsAsFactors = FALSE
-    )
-    
-    all_data[[index]] <- df
-    index <- index + 1
-  }
-}
+fetch_data <- function(row) {
+  i <- row["county"]
+  j <- row["method"]
 
-# Combine all collected dataframes
-county_arrests <- bind_rows(all_data)
-
-# Fix column names
-colnames(county_arrests) <- c("title", "month", "count", "percent")
-
-# Clean data types
-county_arrests <- county_arrests %>%
-  mutate(
-    month = as.Date(paste0(month, "-01")),
-    count = as.numeric(count),
-    percent = as.numeric(percent)
+  url <- paste0(
+    "https://trac.syr.edu/phptools/immigration/arrest/graph.php?stat=count&timescale=fymon&timeunit=number&",
+    "county=", i,
+    "&arrest_method=", j
   )
-
-# Split "title" into county and arrest method (e.g., "Cochise - Border Patrol")
-if (all(grepl(" - ", county_arrests$title))) {
-  county_arrests <- separate(county_arrests, title, into = c("county", "arrest_method"), sep = " - ")
-} else {
-  warning("MISSING seperator ' - '")
+  
+  # Try to parse the JSON
+  json <- tryCatch({
+    fromJSON(url)
+  }, error = function(e) {
+    warning(paste("Error on county:", i, "method:", j))
+    return(NULL)
+  })
+  
+  if (is.null(json) || length(json) < 4 || is.null(json[[4]]$number)) {
+    return(NULL)
+  }
+  
+  # Return structured data frame
+  data.frame(
+    title = json[[1]],
+    month = json[[4]]$fymon,
+    count = json[[4]]$number,
+    percent = json[[4]]$percent,
+    stringsAsFactors = FALSE
+  )
 }
 
-# View final structure
-str(county_arrests)
+# Run the fetch function in parallel
+results_list <- future_lapply(1:nrow(param_grid), function(idx) {
+  fetch_data(param_grid[idx, ])
+})
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Combine and clean results
+county_arrests <- bind_rows(results_list)
+county_arrests <- separate(county_arrests, title, into = c("county", "arrest"), sep = "-")
+  
+  
+  
+  
 #new loop - county level apprehensions
 county_arrests <- NULL
 for (i in 1:2){ #this will be the individual counties
@@ -131,6 +101,41 @@ county_arrests <- separate(county_arrests, title, into = c("county", "arrest"), 
 #########################################################################
 #### county level arrests, aggregated
 options(timeout = 1000) #may need to adjust this depending on the computer
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 test <- fromJSON("https://trac.syr.edu/phptools/immigration/arrest/graph.php?stat=count&timescale=fy&timeunit=number&county=1")
 (test[[1]])
