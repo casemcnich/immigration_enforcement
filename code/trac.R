@@ -5,6 +5,7 @@
 library('rvest')
 #for pulling the graph data
 
+
 library(jsonlite)
 library(dplyr)
 library(tidyr)
