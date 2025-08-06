@@ -1,1 +1,6 @@
-
+\usepackage{tikz}
+\begin{tikzpicture}
+  \node (A) {Start};
+  \node (B) [right of=A] {Process};
+  \draw[->] (A) -- (B);
+\end{tikzpicture}
