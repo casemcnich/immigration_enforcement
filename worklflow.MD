@@ -1,7 +1,8 @@
 ```mermaid
 sequenceDiagram
-    Alice ->> Bob: Hello Bob, how are you?
-    Bob-->>John: How about you John?
+    TRAC total arrest data ->> Trac Data
+    TRAC CAP arrest -->> Trac Data
+    TRAC arrests by arrest method ->>
     Bob--x Alice: I am good thanks!
     Bob-x John: I am good thanks!
     Note right of John: Bob thinks a long<br/>long time, so long<br/>that the text does<br/>not fit on a row.
