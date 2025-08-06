@@ -1,11 +1,10 @@
-# immigration_enforcement
-files for trac/immigration project
+# Immigration Enforcement Labor Project
+The following repository contains R files associated with my immigration enforcement dissertation chapter. 
 
-## The following outlies the workflow for the project
+### Workflow ###
+A majority of files in this project are used to obtain and merge data from TRAC, QCEW, IPUMS, and FOIED data. Data are stored offline. 
 
-```Mermaid
-    A-->B;
-    A-->C;
-    B-->D;
-    C-->D;
-```
+See here for a full walkthrough of the workflow. 
+
+
+
