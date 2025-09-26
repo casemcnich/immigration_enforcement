@@ -4,7 +4,6 @@ The following repository contains R files associated with my immigration enforce
 ### Workflow ###
 A majority of files in this project are used to obtain and merge data from TRAC, QCEW, IPUMS, and FOIED data. Data are stored offline. 
 
-See here for a full walkthrough of the workflow. 
 
 
 
