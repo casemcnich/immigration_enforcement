@@ -22,7 +22,7 @@ library('future.apply')
 options(timeout = 1000) #may need to adjust this depending on the computer
 #new loop - county level apprehensions non CAP arrests
 county_arrests <- NULL
-for (i in 1:200){ #this will be the individual counties
+for (i in 1:1972){ #this will be the individual counties
   url <- "https://tracreports.org/phptools/immigration/arrest/graph.php?stat=count&timescale=fymon&timeunit=number&"
   county <-paste0("county=",i) #county (there are 397 of these)
   url = paste0(url, county) #new url
@@ -43,7 +43,7 @@ for (i in 1:200){ #this will be the individual counties
   #binding to our dataframe
   county_arrests <- rbind(county_arrests, df)
 }
-save(county_arrests, file = "county_arrests.Rdata")
+save(county_arrests, file = "../data/county_arrests.Rdata")
 
 
 ### county level arrests by arrest type - cap = no ####
@@ -81,7 +81,7 @@ county_arrests_nocap <- county_arrests_nocap[, !(names(county_arrests_nocap) %in
 #renaming the count column
 colnames(county_arrests_nocap)[colnames(county_arrests_nocap) == "count"] <- "no_cap_arrests"
 
-save(county_arrests_nocap, file = "county_arrests_nocap.Rdata")
+save(county_arrests_nocap, file = "../date/county_arrests_nocap.Rdata")
 
 # county level arrests by arrest type - cap = yes -----
 options(timeout = 1000) #may need to adjust this depending on the computer
@@ -109,4 +109,4 @@ for (i in 1:1972){ #this will be the individual counties
   county_arrests_cap <- rbind(county_arrests_cap, df)
 }
 
-save(county_arrests_nocap, file = "county_arrests_cap.Rdata")
+save(county_arrests_nocap, file = "../data/county_arrests_cap.Rdata")

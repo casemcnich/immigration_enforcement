@@ -86,7 +86,6 @@ trac <- trac %>%
 trac$year <-as.numeric(trac$year)
 trac$month <-as.numeric(trac$month)
 
-
 #* standardizing county names ----
 #(in a function so this can be used on other files)
 standardize_counties <- 
@@ -131,5 +130,5 @@ standardize_counties <-
   }
 trac <- standardize_counties(trac, title)
 
-save(trac, file = "trac_cap_nocap_merged.Rdata")
+save(trac, file = "../data/trac_cap_nocap_merged.Rdata")
 
