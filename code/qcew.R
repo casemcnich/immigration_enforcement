@@ -2,7 +2,7 @@
 # the purpose of this is to clean and merge the other qcew categories 
 #and the construction industry in
 # last modified by casey mcnichols
-# last modified on 3.11.25
+# last modified on 9.26.25
 ##########################################
 
 # the purpose of this file is to clean the TRAC data and merge it with similar qcew data
@@ -59,7 +59,7 @@ load_employment_qcew <- function (url_chunk){
     df_list[[i]] <- df_long  # save dataframe "temp_df" to a list, "df_list"
   }
   
-  total_employment <- do.call(rbind, df_list) 
+  total_employment <- as.data.frame(bind_rows(df_list))
   return(total_employment)
 }
 
@@ -101,10 +101,7 @@ clean_qcew <- function(qcew_data){
   # Fix Anchorage name again
   qcew_data$county[qcew_data$county == 'Anchorage Borough'] <- 'Anchorage Municipality'
   
-  # Convert year/month to numeric
-  qcew_data$year  <- as.numeric(qcew_data$year)
-  qcew_data$month <- as.numeric(qcew_data$month)
-  
+
   # Keep only private employment records
   qcew_data <- qcew_data %>%
     filter(own_title == "Private")
@@ -129,10 +126,9 @@ load_wages_qcew <- function (link){
     df_wage_list[[i]] <- df_wage_long  # save dataframe "temp_df" to a list, "df_list"
   }
   
-  total_wages <- do.call(rbind, df_wage_list) 
+  total_wages <- bind_rows(df_wage_list) 
   return(total_wages)
 }
-
 
 # Running QCEW functions ------
 # Employment ----
@@ -142,7 +138,7 @@ total_employment_restaurants <- load_employment_qcew(".q1-q4 7225 NAICS 7225 Res
 # Clean function
 total_employment_restaurants <- clean_qcew(total_employment_restaurants)
 # Saving
-save(total_employment_restaurants, file = "total_employment_restaurants.Rdata")
+save(total_employment_restaurants, file = "../data/total_employment_restaurants.Rdata")
 
 #* Construction -----
 # load function
@@ -150,7 +146,7 @@ total_employment_const <- load_employment_qcew(".q1-q4 23 Construction")
 # Clean function
 total_employment_const <- clean_qcew(total_employment_const)
 # Saving
-save(total_employment_const, file = "total_employment_const.Rdata")
+save(total_employment_const, file = "../data/total_employment_const.Rdata")
 
 #* Total ----
 # load function
@@ -158,23 +154,23 @@ total_employment_all <- load_employment_qcew(".q1-q4 10 Total, all industries")
 # Clean function
 total_employment_all <- clean_qcew(total_employment_all)
 # Saving
-save(total_employment_all, file = "total_employment_all.Rdata")
+save(total_employment_all, file = "../data/total_employment_all.Rdata")
 
 # Wages ----
 #* Restaurants -----
 total_wages_restaurant <- load_wages_qcew(".q1-q4 7225 NAICS 7225 Restaurants")
 total_wages_restaurant <- clean_qcew(total_wages_restaurant)
-save(total_wages_restaurant, file = "total_wages_restaurant.Rdata")
+save(total_wages_restaurant, file = "../data/total_wages_restaurant.Rdata")
 
 #* Construction -----
-total_wages_const <- load_wages_qcew(".q1-q4 23 Construction")
-total_wages_const <- clean_qcew(total_wages_const)
-save(total_wages_const, file = "total_wages_const.Rdata")
+qcew_data <- load_wages_qcew(".q1-q4 23 Construction")
+total_wages_const <- clean_qcew(qcew_data)
+save(total_wages_const, file = "../data/total_wages_const.Rdata")
 
 #* Total -----
 total_wages_all <- load_wages_qcew(".q1-q4 10 Total, all industries")
 total_wages_all <- clean_qcew(total_wages_all)
-save(total_wages_all, file = "total_wages_all.Rdata")
+save(total_wages_all, file = "../data/total_wages_all.Rdata")
 
 # Merging employment and wage data ----
 # renaming all the wage and employment columns 
@@ -186,96 +182,51 @@ names(total_employment_all)[names(total_employment_all) == "monthly_emplvl"] <- 
 names(total_employment_const)[names(total_employment_const) == "monthly_emplvl"] <- "monthly_emplvl_const"
 names(total_employment_restaurants)[names(total_employment_restaurants) == "monthly_emplvl"] <- "monthly_emplvl_rest"
 
-# employment
-other_emp <- right_join(total_employment_all, total_employment_const, by = c("area_fips","area_title","own_title", "year", "month", "qtr"))
-all_merged_employ <- right_join(other_emp, total_employment_restaurants, by =c("area_fips","area_title","own_title", "year", "month", "qtr"))
+# employment merging
+all_merged_employ <- right_join(total_employment_all, total_employment_const, by = c("area_fips","county","state_full", "own_title", "year", "month", "qtr"))
+all_merged_employ <- right_join(all_merged_employ, total_employment_restaurants, by = c("area_fips","county","state_full", "own_title", "year", "month", "qtr"))
 
-# wages
-other_wages<- right_join(total_wages_all, total_wages_const, by = c("area_fips", "area_title", "own_title", "year", "qtr"))
-all_merged_wages <- right_join(other_wages, total_wages_restaurant, by =c("area_fips","area_title","own_title", "year", "qtr"))
+# wages merging
+all_merged_wages<- right_join(total_wages_all, total_wages_const, by = c("area_fips","county","state_full", "own_title", "year", "qtr"))
+all_merged_wages <- right_join(all_merged_wages, total_wages_restaurant, by =c("area_fips","county","state_full", "own_title", "year", "qtr"))
 
 #switching months to numeric
 all_merged_employ$month <- as.numeric(all_merged_employ$month)
+all_merged_employ$month <- as.numeric(all_merged_employ$year)
+all_merged_wages$month <- as.numeric(all_merged_wages$year)
 
 #making sure the date ranges match
 all_merged_employ <- all_merged_employ %>%
   filter(!(year == 2014 & qtr %in% c(1, 2, 3))) %>%
   filter(!(year == 2018 & qtr %in% c(4, 3))) %>%
   filter(!(year == 2019 )) %>%
-  filter(!str_detect(area_title, "Statewide"))
-
+  filter(!str_detect(county, "Statewide"))
 
 all_merged_wages <- all_merged_wages %>%
   filter(!(year == 2014 & qtr %in% c(1, 2, 3))) %>%
   filter(!(year == 2018 & qtr %in% c(4, 3))) %>%
   filter(!(year == 2019 )) %>%
-  filter(!str_detect(area_title, "Statewide"))
-
+  filter(!str_detect(county, "Statewide"))
 
 #saving the merged files
-save(all_merged_employ, file = "all_merged_employ.Rdata")
-save(all_merged_wages, file = "all_merged_wages.Rdata")
+save(all_merged_employ, file = "../data/all_merged_employ.Rdata")
+save(all_merged_wages, file = "../data/all_merged_wages.Rdata")
 
-# merging with trac data -----
-load("matched_wages.Rdata")
-load("matched_employment.Rdata")
-
-#subset
-trac_employment<- left_join(all_merged_employ, matched_employment, by = c("area_fips", "own_title", "year", "month", "qtr"))
-trac_wages <- left_join(all_merged_wages, matched_wages, by =c("area_fips","own_title", "year", "qtr"))
-
-#total_non_cap 
-save(trac_employment, file = "trac_employment.Rdata")
-save(trac_wages, file = "trac_wages.Rdata")
-
-###############################################################################
-#merging our two simple dataframes
-#merging to our shapefile data
-matched_employment <- right_join(total_employment, trac, by = c("county", "state", "year", "month"))
-#pulling out the ones to fix by hand
-help <- subset(matched_employment, is.na(matched_employment$qtr))
-#borden county does not exist in all QCEW years
-# Issaquena County does not exist in all qcew years
-matched_employment<- matched_employment[!is.na(matched_employment$monthly_emplvl), ]
-###################################################################
-#quick summary statistics
-sumtable(matched_employment)
-
-#checking if the panel is balanced
-panel_balance <- matched_employment %>%
-  group_by(county) %>%
-  summarise(num_time_periods = n_distinct(year, month))
-
-summary(panel_balance)
-
-#dropping the two unbalanced counties 
-matched_employment <- subset(matched_employment, !(county %in% c("Borden County", "Daggett County")))
-
-#state level summary df 
-state_summary <- matched_employment %>%
-  group_by(state, year) %>%
-  summarise(
-    total_employment = sum(monthly_emplvl, na.rm = TRUE),
-    total_arrests = sum(count, na.rm = TRUE)
-  )
-
-#saving 
-save(matched_employment, file = "matched_employment.Rdata")
-
-
+# merging with trac ----
+#* loading trac data -----
+load("../data/trac_cap_nocap_merged.Rdata")
 
 # Create a quarter column based on the year and month
-trac_wages <- trac %>%
+trac_quarters <- trac %>%
   mutate(qtr = ceiling(month / 3))
 
 # Ensure 'count' is numeric (if not already)
-trac_wages$count <- as.numeric(trac_wages$count)
-trac_wages$non_cap <- as.numeric(trac_wages$count)
-trac_wages$count <- as.numeric(trac_wages$count)
-
+trac_quarters$count <- as.numeric(trac_quarters$count)
+trac_quarters$no_cap_arrests <- as.numeric(trac_quarters$count)
+trac_quarters$cap_arrests <- as.numeric(trac_quarters$count)
 
 # Aggregate by 'year', 'quarter', and 'county_name'
-trac_wages <- trac_wages %>%
+trac_quarters <- trac_quarters %>%
   group_by(year, qtr, county, state) %>%  # Group by year, quarter, and county
   summarise(
     total_value = sum(count, na.rm = TRUE),
@@ -284,21 +235,50 @@ trac_wages <- trac_wages %>%
     .groups = "drop"  # Ungroup the result
   )
 
-###############################################################################
-#merging our two simple dataframes
-#merging to our shapefile data
-matched_wages <- right_join(total_wages, trac_wages, by = c("county", "state", "year", "qtr"))
+#* Merge employment ----
+trac_employment <- left_join(all_merged_employ, trac, by = c("county", "state", "year", "month"))
+
+#dropping the two../data/trac_cap_nocap_merged.Rdata unbalanced counties 
+trac_employment <- subset(trac_employment, !(county %in% c("Borden County", "Daggett County")))
+
+#help <- subset(trac_employment, is.na(trac_employment$qtr))
+
+#quick summary statistics
+sumtable(trac_employment)
 
 #checking if the panel is balanced
-panel_balance <- matched_wages %>%
+panel_balance <- trac_employment %>%
+  group_by(county) %>%
+  summarise(num_time_periods = n_distinct(year, month))
+
+summary(trac_employment)
+
+#state level summary df 
+state_summary <- trac_employment %>%
+  group_by(state, year) %>%
+  summarise(
+    total_employment = sum(monthly_emplvl, na.rm = TRUE),
+    total_arrests = sum(count, na.rm = TRUE)
+  )
+
+#saving 
+save(trac_employment, file = "../data/matched_employment.Rdata")
+
+#* merge wages ----
+trac_wages <- right_join(all_merged_wages, trac_quarters, by = c("county", "state", "year", "qtr"))
+
+#dropping the two unbalanced counties 
+trac_wages <- subset(trac_wages, !(county %in% c("Borden County", "Daggett County")))
+
+#check for any unmatched counties 
+#help <- subset(trac_wages, is.na(trac_wages$qtr))
+
+#checking if the panel is balanced
+panel_balance <- trac_wages %>%
   group_by(county) %>%
   summarise(num_time_periods = n_distinct(year, qtr))
 
-summary(panel_balance)
+summary(trac_wages)
 
-#dropping the two unbalanced counties 
-matched_wages <- subset(matched_wages, !(county %in% c("Borden County", "Daggett County")))
-help <- subset(matched_wages, is.na(matched_wages$qtr))
-
-save(matched_wages, file = "matched_wages.Rdata")
+save(trac_wages, file = "../data/matched_wages.Rdata")
 
