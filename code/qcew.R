@@ -18,6 +18,7 @@ library('usdata')
 library(lubridate)
 library(vtable)
 library(sf)
+library(zoo)
 
 # setting the working directory
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
@@ -257,12 +258,12 @@ summary(trac_employment)
 state_summary <- trac_employment %>%
   group_by(state, year) %>%
   summarise(
-    total_employment = sum(monthly_emplvl, na.rm = TRUE),
+    total_employment = sum(monthly_emplvl_all, na.rm = TRUE),
     total_arrests = sum(count, na.rm = TRUE)
   )
 
 #saving 
-save(trac_employment, file = "../data/matched_employment.Rdata")
+#save(trac_employment, file = "../data/matched_employment.Rdata")
 
 #* merge wages ----
 trac_wages <- right_join(all_merged_wages, trac_quarters, by = c("county", "state", "year", "qtr"))
@@ -280,5 +281,70 @@ panel_balance <- trac_wages %>%
 
 summary(trac_wages)
 
-save(trac_wages, file = "../data/matched_wages.Rdata")
+#save(trac_wages, file = "../data/matched_wages.Rdata")
 
+# making the "employment other" category -----
+
+#* Employment ----
+# for the sake of clarity I will call all - construction and restaurant as "other" 
+trac_employment$monthly_emplvl_other = trac_employment$monthly_emplvl_all - trac_employment$monthly_emplvl_const - trac_employment$monthly_emplvl_rest
+
+# creating a year_mon variable
+trac_employment$year_mon <- as.yearmon(paste(trac_employment$year, " ", trac_employment$month), "%Y %m")
+
+#switching  counts to numeric
+trac_employment$count <- as.numeric(trac_employment$count)
+
+#making demeaned version, z score version, and inverse hyperbolic sine version
+trac_employment = trac_employment %>%
+  group_by(area_fips) %>%
+  #z score  version
+  mutate(z_score_other = scale(monthly_emplvl_other)) %>%
+  mutate(z_score_rest = scale(monthly_emplvl_rest)) %>%  
+  mutate(z_score_const = scale(monthly_emplvl_const)) %>%
+  #demeaned version
+  mutate(demeaned_other = monthly_emplvl_other - mean(monthly_emplvl_other)) %>%
+  mutate(demeaned_rest = monthly_emplvl_rest - mean(monthly_emplvl_rest)) %>%
+  mutate(demeaned_const = monthly_emplvl_const - mean(monthly_emplvl_const))%>%
+  #ihs version
+  mutate(ihs_emp_other = log(monthly_emplvl_other + ((monthly_emplvl_other^2 +1)^0.5))) %>%
+  mutate (ihs_emp_rest = log(monthly_emplvl_rest + ((monthly_emplvl_rest^2 +1)^0.5))) %>%
+  mutate( ihs_emp_const = log(monthly_emplvl_const + ((monthly_emplvl_const^2 +1)^0.5))) %>%
+  mutate( ihs_count = log(count + ((count^2 +1)^0.5))) %>%
+  mutate( ihs_non_cap = log(no_cap_arrests + ((no_cap_arrests^2 +1)^0.5)))
+
+# Wages ----
+#I will calculate the same "employment_other" column and then average it over the three months
+trac_wages <- trac_wages %>%
+  mutate(month1_emplvl_other = month1_emplvl_all - month1_emplvl_rest - month1_emplvl_const) %>%
+  mutate(month2_emplvl_other = month2_emplvl_all - month2_emplvl_rest - month2_emplvl_const) %>%
+  mutate(month3_emplvl_other = month3_emplvl_all - month3_emplvl_rest - month3_emplvl_const) %>%
+  mutate(avg_emplvl_other = rowMeans(select(., month1_emplvl_other, month2_emplvl_other, month3_emplvl_other), na.rm = TRUE)) %>%
+  #then i will subtract out the construction and restaurant industries from the total quarterly wage column
+  mutate(total_qtrly_wages_other = total_qtrly_wages_all - total_qtrly_wages_rest - total_qtrly_wages_const) %>%
+  #finally i will divide the new quarterly wage column by the average employment column
+  mutate(avg_wkly_wage_other = (total_qtrly_wages_other/avg_emplvl_other)/13)
+
+# creating a qtr_mon variable
+trac_wages$year_qtr <- as.yearqtr(paste(trac_wages$year, " ", trac_wages$qtr), "%Y %q")
+
+#switching  counts to numeric
+trac_wages$total_value <- as.numeric(trac_wages$total_value)
+
+#making demeaned version, z score version, and inverse hyperbolic sine version
+trac_wages = trac_wages %>%
+  group_by(area_fips) %>%
+  #z score  version
+  mutate(z_score_other = scale(avg_wkly_wage_other)) %>%
+  mutate(z_score_rest = scale(avg_wkly_wage_rest)) %>%  
+  mutate(z_score_const = scale(avg_wkly_wage_const)) %>%
+  #demeaned version
+  mutate(demeaned_other = avg_wkly_wage_other - mean(avg_wkly_wage_other)) %>%
+  mutate(demeaned_rest = avg_wkly_wage_rest - mean(avg_wkly_wage_rest)) %>%
+  mutate(demeaned_const = avg_wkly_wage_const - mean(avg_wkly_wage_const))%>%
+  #ihs version
+  mutate(ihs_wage_other = log(avg_wkly_wage_other + ((avg_wkly_wage_other^2 +1)^0.5))) %>%
+  mutate (ihs_wage_rest = log(avg_wkly_wage_rest + ((avg_wkly_wage_rest^2 +1)^0.5))) %>%
+  mutate( ihs_wage_const = log(avg_wkly_wage_const + ((avg_wkly_wage_const^2 +1)^0.5))) %>%
+  mutate( ihs_wage_count = log(total_value + ((total_value^2 +1)^0.5))) %>%
+  mutate( ihs_no_cap = log(total_nocap + ((total_nocap^2 +1)^0.5)))
