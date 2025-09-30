@@ -262,9 +262,6 @@ state_summary <- trac_employment %>%
     total_arrests = sum(count, na.rm = TRUE)
   )
 
-#saving 
-#save(trac_employment, file = "../data/matched_employment.Rdata")
-
 #* merge wages ----
 trac_wages <- right_join(all_merged_wages, trac_quarters, by = c("county", "state", "year", "qtr"))
 
@@ -280,8 +277,6 @@ panel_balance <- trac_wages %>%
   summarise(num_time_periods = n_distinct(year, qtr))
 
 summary(trac_wages)
-
-#save(trac_wages, file = "../data/matched_wages.Rdata")
 
 # making the "employment other" category -----
 
@@ -312,6 +307,9 @@ trac_employment = trac_employment %>%
   mutate( ihs_emp_const = log(monthly_emplvl_const + ((monthly_emplvl_const^2 +1)^0.5))) %>%
   mutate( ihs_count = log(count + ((count^2 +1)^0.5))) %>%
   mutate( ihs_non_cap = log(no_cap_arrests + ((no_cap_arrests^2 +1)^0.5)))
+
+#saving 
+save(trac_employment, file = "../data/matched_employment.Rdata")
 
 # Wages ----
 #I will calculate the same "employment_other" column and then average it over the three months
@@ -348,3 +346,5 @@ trac_wages = trac_wages %>%
   mutate( ihs_wage_const = log(avg_wkly_wage_const + ((avg_wkly_wage_const^2 +1)^0.5))) %>%
   mutate( ihs_wage_count = log(total_value + ((total_value^2 +1)^0.5))) %>%
   mutate( ihs_no_cap = log(total_nocap + ((total_nocap^2 +1)^0.5)))
+
+save(trac_wages, file = "../data/matched_wages.Rdata")
