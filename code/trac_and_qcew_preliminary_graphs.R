@@ -16,21 +16,12 @@ library(zoo)
 library(ggplot2)
 
 # loading data ----
-load("trac_employment.Rdata")
-load("trac_wages.Rdata")
+load("../data/nhgis_qcew_trac_employ.Rdata")
+load("../data/nhgis_qcew_trac_wages.Rdata")
 
-# for the sake of clarity I will call all - construction and restaurant as "other" 
-#employment calculation
-trac_employment$monthly_emplvl_other = trac_employment$monthly_emplvl_all - trac_employment$monthly_emplvl_const - trac_employment$monthly_emplvl_rest
+# data cleaning ---
 
 # building out additional variables
-#creating a yearmon variable and qtr_mon variable
-trac_employment$year_mon <- as.yearmon(paste(trac_employment$year, " ", trac_employment$month), "%Y %m")
-trac_wages$year_qtr <- as.yearqtr(paste(trac_wages$year, " ", trac_wages$qtr), "%Y %q")
-
-#switching  counts to numeric
-trac_employment$count <- as.numeric(trac_employment$count)
-trac_wages$total_value <- as.numeric(trac_wages$total_value)
 
 #making demeaned version, z score version, and inverse hyperbolic sine version
 trac_employment = trac_employment %>%
@@ -69,8 +60,7 @@ trac_wages = trac_wages %>%
   mutate( ihs_wage_count = log(total_value + ((total_value^2 +1)^0.5))) %>%
   mutate( ihs_no_cap = log(total_nocap + ((total_nocap^2 +1)^0.5)))
 
-#################### plotting employment - full dataset - subset to include counties that had at least one arrest ########################################
-# subset to counties that ever had an arrest
+# subset to counties that ever had an arrest 
 trac_employment <- trac_employment %>%
   group_by(county) %>%
   filter(any(count >= 1))
@@ -79,15 +69,7 @@ trac_wages <- trac_wages %>%
   group_by(county) %>%
   filter(any(total_value >=1))
 
-##### making subsets #####
-#mkaing subsets
-trac_wages_treatment <- trac_wages %>%
-  group_by(area_title) %>%
-  filter(any(total_value >= 1))
 
-trac_employ_treatment <- trac_employment %>%
-  group_by(area_title) %>%
-  filter(any(count >= 1))
 ########* employment, z score ##############
 ggplot(subset(trac_employment)) +
   aes(count, z_score_other) + geom_point(size = .5) +  
@@ -647,12 +629,6 @@ ggplot(trac_wages_treatment) +
        y = "Change in Wage in Other",  
        title = "Arrest Count vs Change in Wage in Other industries with Time Fixed Effect") + 
   theme_bw() 
-
-#############################################################################
-save(trac_employment, file ="trac_employment.Rdata")
-save (trac_employment, file = "trac_wages.Rdata")
-
-######### loading the I247a data ############
 
 
 
