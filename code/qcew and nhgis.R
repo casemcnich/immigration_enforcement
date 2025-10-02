@@ -287,24 +287,6 @@ trac_employment$year_mon <- as.yearmon(paste(trac_employment$year, " ", trac_emp
 #switching  counts to numeric
 trac_employment$count <- as.numeric(trac_employment$count)
 
-#making demeaned version, z score version, and inverse hyperbolic sine version
-trac_employment = trac_employment %>%
-  group_by(area_fips) %>%
-  #z score  version
-  mutate(z_score_other = scale(monthly_emplvl_other)) %>%
-  mutate(z_score_rest = scale(monthly_emplvl_rest)) %>%  
-  mutate(z_score_const = scale(monthly_emplvl_const)) %>%
-  #demeaned version
-  mutate(demeaned_other = monthly_emplvl_other - mean(monthly_emplvl_other)) %>%
-  mutate(demeaned_rest = monthly_emplvl_rest - mean(monthly_emplvl_rest)) %>%
-  mutate(demeaned_const = monthly_emplvl_const - mean(monthly_emplvl_const))%>%
-  #ihs version
-  mutate(ihs_emp_other = log(monthly_emplvl_other + ((monthly_emplvl_other^2 +1)^0.5))) %>%
-  mutate (ihs_emp_rest = log(monthly_emplvl_rest + ((monthly_emplvl_rest^2 +1)^0.5))) %>%
-  mutate( ihs_emp_const = log(monthly_emplvl_const + ((monthly_emplvl_const^2 +1)^0.5))) %>%
-  mutate( ihs_count = log(count + ((count^2 +1)^0.5))) %>%
-  mutate( ihs_non_cap = log(no_cap_arrests + ((no_cap_arrests^2 +1)^0.5)))
-
 # Wages ----
 #I will calculate the same "employment_other" column and then average it over the three months
 trac_wages <- trac_wages %>%
@@ -322,24 +304,6 @@ trac_wages$year_qtr <- as.yearqtr(paste(trac_wages$year, " ", trac_wages$qtr), "
 
 #switching  counts to numeric
 trac_wages$total_value <- as.numeric(trac_wages$total_value)
-
-#making demeaned version, z score version, and inverse hyperbolic sine version
-trac_wages = trac_wages %>%
-  group_by(area_fips) %>%
-  #z score  version
-  mutate(z_score_other = scale(avg_wkly_wage_other)) %>%
-  mutate(z_score_rest = scale(avg_wkly_wage_rest)) %>%  
-  mutate(z_score_const = scale(avg_wkly_wage_const)) %>%
-  #demeaned version
-  mutate(demeaned_other = avg_wkly_wage_other - mean(avg_wkly_wage_other)) %>%
-  mutate(demeaned_rest = avg_wkly_wage_rest - mean(avg_wkly_wage_rest)) %>%
-  mutate(demeaned_const = avg_wkly_wage_const - mean(avg_wkly_wage_const))%>%
-  #ihs version
-  mutate(ihs_wage_other = log(avg_wkly_wage_other + ((avg_wkly_wage_other^2 +1)^0.5))) %>%
-  mutate (ihs_wage_rest = log(avg_wkly_wage_rest + ((avg_wkly_wage_rest^2 +1)^0.5))) %>%
-  mutate( ihs_wage_const = log(avg_wkly_wage_const + ((avg_wkly_wage_const^2 +1)^0.5))) %>%
-  mutate( ihs_wage_count = log(total_value + ((total_value^2 +1)^0.5))) %>%
-  mutate( ihs_no_cap = log(total_nocap + ((total_nocap^2 +1)^0.5)))
 
 # NHGIS ----
 #* loading nhgis data ----
@@ -386,11 +350,11 @@ trac_wages <- merge(x = trac_wages, y = nhgis,
                  by.y = c("area_fips", "year"), 
                  all.x = TRUE)
 
-save(trac_wages, file = "../data/nhgis_qcew_trac_wages.R")
+save(trac_wages, file = "../data/nhgis_qcew_trac_wages.Rdata")
 
 # employment
 trac_employment <- merge(x = trac_employment, y = nhgis, 
                     by.x = c("area_fips", "year"), 
                     by.y = c("area_fips", "year"), 
                     all.x = TRUE)
-save(trac_employment, file = "../data/nhgis_qcew_trac_employ.R")
+save(trac_employment, file = "../data/nhgis_qcew_trac_employ.Rdata")
