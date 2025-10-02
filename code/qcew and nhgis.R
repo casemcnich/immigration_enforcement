@@ -1,11 +1,11 @@
 ##########################################
-# the purpose of this is to clean and merge the other qcew categories 
-#and the construction industry in
+# the purpose of this is to clean and merge the qcew 
+# and nhgis data with the scraped trac data.
+# This creates our basline data (exept for the FOIA data)
+# that we use in the remaineder of the work
 # last modified by casey mcnichols
-# last modified on 9.26.25
+# last modified on 10.01.25
 ##########################################
-
-# the purpose of this file is to clean the TRAC data and merge it with similar qcew data
 
 #loading packages
 #if we end up scraping
@@ -161,17 +161,14 @@ save(total_employment_all, file = "../data/total_employment_all.Rdata")
 #* Restaurants -----
 total_wages_restaurant <- load_wages_qcew(".q1-q4 7225 NAICS 7225 Restaurants")
 total_wages_restaurant <- clean_qcew(total_wages_restaurant)
-save(total_wages_restaurant, file = "../data/total_wages_restaurant.Rdata")
 
 #* Construction -----
 qcew_data <- load_wages_qcew(".q1-q4 23 Construction")
 total_wages_const <- clean_qcew(qcew_data)
-save(total_wages_const, file = "../data/total_wages_const.Rdata")
 
 #* Total -----
 total_wages_all <- load_wages_qcew(".q1-q4 10 Total, all industries")
 total_wages_all <- clean_qcew(total_wages_all)
-save(total_wages_all, file = "../data/total_wages_all.Rdata")
 
 # Merging employment and wage data ----
 # renaming all the wage and employment columns 
@@ -308,9 +305,6 @@ trac_employment = trac_employment %>%
   mutate( ihs_count = log(count + ((count^2 +1)^0.5))) %>%
   mutate( ihs_non_cap = log(no_cap_arrests + ((no_cap_arrests^2 +1)^0.5)))
 
-#saving 
-save(trac_employment, file = "../data/matched_employment.Rdata")
-
 # Wages ----
 #I will calculate the same "employment_other" column and then average it over the three months
 trac_wages <- trac_wages %>%
@@ -347,4 +341,56 @@ trac_wages = trac_wages %>%
   mutate( ihs_wage_count = log(total_value + ((total_value^2 +1)^0.5))) %>%
   mutate( ihs_no_cap = log(total_nocap + ((total_nocap^2 +1)^0.5)))
 
-save(trac_wages, file = "../data/matched_wages.Rdata")
+# NHGIS ----
+#* loading nhgis data ----
+df_list <- list()
+years <- c("2014", "2015", "2016", "2017", "2018")
+
+for (i in years){ #import loop
+  url <- paste0("../data/nhgis/nhgis0023_", i ,"_county.csv")
+  df <- read.csv(url)
+  df_list[[i]] <- df  # save dataframe "temp_df" to a list, "df_list"
+}
+# creating dataframe 
+nhgis <- do.call(rbind, df_list) 
+
+#* cleaning ----
+# Get the list of counties that appear for each year
+county_list <- nhgis %>%
+  group_by(COUNTY) %>%
+  filter(n_distinct(YEAR) == length(unique(nhgis$YEAR))) %>%
+  pull(COUNTY) %>%
+  unique()
+
+# switch colnames to lowercase
+colnames(nhgis) <- tolower(colnames(nhgis))
+
+# Filter the data frame to keep only those counties
+nhgis <- nhgis %>% filter(county %in% county_list) %>%
+# and to drop variables
+  select(-regiona, -divisiona, -countya, -cousuba, -placea, -aianhha,
+             anrca, -cbsaa, -csaa, -metdiva, -nectaa, -cnectaa, -nectadiva, -uaa, 
+             -cdcurra, -sdelma, -sdseca, -sdunia, -pci, -pumaa, -name_e, 
+         -anrca, -name_m, -state)
+
+# modifing the GEOD so it can be easily merged with shorter FIPS
+nhgis$area_fips <- gsub("05000US", "", nhgis$geoid, fixed = TRUE)
+
+#switching year to numeric 
+nhgis$year <- as.numeric(nhgis$year)
+
+#* merging with other qcew and trac data ----
+# wages
+trac_wages <- merge(x = trac_wages, y = nhgis, 
+                 by.x = c("area_fips", "year"), 
+                 by.y = c("area_fips", "year"), 
+                 all.x = TRUE)
+
+save(trac_wages, file = "../data/nhgis_qcew_trac_wages.R")
+
+# employment
+trac_employment <- merge(x = trac_employment, y = nhgis, 
+                    by.x = c("area_fips", "year"), 
+                    by.y = c("area_fips", "year"), 
+                    all.x = TRUE)
+save(trac_employment, file = "../data/nhgis_qcew_trac_employ.R")
