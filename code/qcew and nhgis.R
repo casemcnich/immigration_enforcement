@@ -139,7 +139,6 @@ total_employment_restaurants <- load_employment_qcew(".q1-q4 7225 NAICS 7225 Res
 # Clean function
 total_employment_restaurants <- clean_qcew(total_employment_restaurants)
 # Saving
-save(total_employment_restaurants, file = "../data/total_employment_restaurants.Rdata")
 
 #* Construction -----
 # load function
@@ -147,7 +146,6 @@ total_employment_const <- load_employment_qcew(".q1-q4 23 Construction")
 # Clean function
 total_employment_const <- clean_qcew(total_employment_const)
 # Saving
-save(total_employment_const, file = "../data/total_employment_const.Rdata")
 
 #* Total ----
 # load function
@@ -155,7 +153,6 @@ total_employment_all <- load_employment_qcew(".q1-q4 10 Total, all industries")
 # Clean function
 total_employment_all <- clean_qcew(total_employment_all)
 # Saving
-save(total_employment_all, file = "../data/total_employment_all.Rdata")
 
 # Wages ----
 #* Restaurants -----
@@ -190,8 +187,9 @@ all_merged_wages <- right_join(all_merged_wages, total_wages_restaurant, by =c("
 
 #switching months to numeric
 all_merged_employ$month <- as.numeric(all_merged_employ$month)
-all_merged_employ$month <- as.numeric(all_merged_employ$year)
-all_merged_wages$month <- as.numeric(all_merged_wages$year)
+all_merged_employ$year <- as.numeric(all_merged_employ$year)
+all_merged_wages$month <- as.numeric(all_merged_wages$month)
+all_merged_wages$year <- as.numeric(all_merged_wages$year)
 
 #making sure the date ranges match
 all_merged_employ <- all_merged_employ %>%
@@ -209,6 +207,24 @@ all_merged_wages <- all_merged_wages %>%
 #saving the merged files
 save(all_merged_employ, file = "../data/all_merged_employ.Rdata")
 save(all_merged_wages, file = "../data/all_merged_wages.Rdata")
+
+# checking both dataframes are square
+employ_square <- all_merged_employ %>%
+  group_by(county, state_full) %>%
+  summarise(Count = n()) # there are about 40 counties thaat are not
+
+all_merged_employ <- all_merged_employ %>% 
+  group_by(county, state_full) %>% 
+  filter(n() >= 72)
+
+wage_square <- all_merged_wages %>%
+  group_by(county, state_full) %>%
+  summarise(Count = n()) # there are about 40 counties that are not
+# some are just "unknown" or other catch
+
+all_merged_wages <- all_merged_wages %>% 
+  group_by(state_full, county) %>% 
+  filter(n() >= 24)
 
 # merging with trac ----
 #* loading trac data -----
@@ -233,13 +249,26 @@ trac_quarters <- trac_quarters %>%
     .groups = "drop"  # Ungroup the result
   )
 
+# checking both dataframes are square
+trac_square <- trac %>%
+  group_by(county, state) %>%
+  summarise(Count = n()) #yes 1966 unique
+
+trac_square <- trac_quarters %>%
+  group_by(county, state) %>%
+  summarise(Count = n()) #yes 1966 unique
+
 #* Merge employment ----
 trac_employment <- left_join(all_merged_employ, trac, by = c("county", "state", "year", "month"))
 
+#fill the trac arrest columns with 0 where they are NA
+# Replace NA with 0 in 'col1' and 'col3'
+trac_employment$count[is.na(trac_employment$count)] <- 0
+trac_employment$cap_arrests[is.na(trac_employment$cap_arrests)] <- 0
+trac_employment$no_cap_arrests[is.na(trac_employment$no_cap_arrests)] <- 0
+
 #dropping the two../data/trac_cap_nocap_merged.Rdata unbalanced counties 
 trac_employment <- subset(trac_employment, !(county %in% c("Borden County", "Daggett County")))
-
-#help <- subset(trac_employment, is.na(trac_employment$qtr))
 
 #quick summary statistics
 sumtable(trac_employment)
