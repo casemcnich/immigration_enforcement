@@ -152,7 +152,6 @@ total_employment_const <- clean_qcew(total_employment_const)
 total_employment_all <- load_employment_qcew(".q1-q4 10 Total, all industries")
 # Clean function
 total_employment_all <- clean_qcew(total_employment_all)
-# Saving
 
 # Wages ----
 #* Restaurants -----
@@ -188,7 +187,7 @@ all_merged_wages <- right_join(all_merged_wages, total_wages_restaurant, by =c("
 #switching months to numeric
 all_merged_employ$month <- as.numeric(all_merged_employ$month)
 all_merged_employ$year <- as.numeric(all_merged_employ$year)
-all_merged_wages$month <- as.numeric(all_merged_wages$month)
+all_merged_wages$qtr <- as.numeric(all_merged_wages$qtr)
 all_merged_wages$year <- as.numeric(all_merged_wages$year)
 
 #making sure the date ranges match
@@ -204,10 +203,6 @@ all_merged_wages <- all_merged_wages %>%
   filter(!(year == 2019 )) %>%
   filter(!str_detect(county, "Statewide"))
 
-#saving the merged files
-save(all_merged_employ, file = "../data/all_merged_employ.Rdata")
-save(all_merged_wages, file = "../data/all_merged_wages.Rdata")
-
 # checking both dataframes are square
 employ_square <- all_merged_employ %>%
   group_by(county, state_full) %>%
@@ -215,7 +210,7 @@ employ_square <- all_merged_employ %>%
 
 all_merged_employ <- all_merged_employ %>% 
   group_by(county, state_full) %>% 
-  filter(n() >= 72)
+  filter(n() >= 45)
 
 wage_square <- all_merged_wages %>%
   group_by(county, state_full) %>%
@@ -224,7 +219,11 @@ wage_square <- all_merged_wages %>%
 
 all_merged_wages <- all_merged_wages %>% 
   group_by(state_full, county) %>% 
-  filter(n() >= 24)
+  filter(n() >= 15)
+
+#saving the merged files
+save(all_merged_employ, file = "../data/all_merged_employ.Rdata") #163332
+save(all_merged_wages, file = "../data/all_merged_wages.Rdata") #54444
 
 # merging with trac ----
 #* loading trac data -----
@@ -247,7 +246,7 @@ trac_quarters <- trac_quarters %>%
     total_cap = sum(cap_arrests, na.rm = TRUE), 
     total_nocap = sum(no_cap_arrests, na.rm = TRUE),#Sum of values, handling NA if any
     .groups = "drop"  # Ungroup the result
-  )
+  ) 
 
 # checking both dataframes are square
 trac_square <- trac %>%
@@ -258,8 +257,12 @@ trac_square <- trac_quarters %>%
   group_by(county, state) %>%
   summarise(Count = n()) #yes 1966 unique
 
+# trac quarter 29490
+# trac 86504
+
 #* Merge employment ----
 trac_employment <- left_join(all_merged_employ, trac, by = c("county", "state", "year", "month"))
+#trac employ 162540 
 
 #fill the trac arrest columns with 0 where they are NA
 # Replace NA with 0 in 'col1' and 'col3'
@@ -289,7 +292,8 @@ state_summary <- trac_employment %>%
   )
 
 #* merge wages ----
-trac_wages <- right_join(all_merged_wages, trac_quarters, by = c("county", "state", "year", "qtr"))
+trac_wages <- left_join(all_merged_wages, trac_quarters, by = c("county", "state", "year", "qtr"))
+# n = 54189
 
 #dropping the two unbalanced counties 
 trac_wages <- subset(trac_wages, !(county %in% c("Borden County", "Daggett County")))
@@ -318,7 +322,15 @@ trac_employment$count <- as.numeric(trac_employment$count)
 
 # Wages ----
 #I will calculate the same "employment_other" column and then average it over the three months
+
+#drop staste y 
+trac_wages <- subset(trac_wages, select = c(-state.y, -state.x))
+
+#switching various rows to numeric
+trac_wages[, 6:21] <- lapply(trac_wages[, 6:21], as.numeric)
+
 trac_wages <- trac_wages %>%
+  ungroup %>%
   mutate(month1_emplvl_other = month1_emplvl_all - month1_emplvl_rest - month1_emplvl_const) %>%
   mutate(month2_emplvl_other = month2_emplvl_all - month2_emplvl_rest - month2_emplvl_const) %>%
   mutate(month3_emplvl_other = month3_emplvl_all - month3_emplvl_rest - month3_emplvl_const) %>%
