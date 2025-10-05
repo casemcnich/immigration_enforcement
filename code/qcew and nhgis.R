@@ -401,6 +401,5 @@ trac_employment <- merge(x = trac_employment, y = nhgis,
                     by.y = c("area_fips", "year"), 
                     all.x = TRUE)
 
-names(trac_employment)[names(trac_employment) == "county.x"] <- "county"
-
+trac_employment <- subset(trac_employment, select = -county.x)
 save(trac_employment, file = "../data/nhgis_qcew_trac_employ.Rdata")
