@@ -392,6 +392,7 @@ trac_wages <- merge(x = trac_wages, y = nhgis,
                  all.x = TRUE)
 
 names(trac_wages)[names(trac_wages) == "county.x"] <- "county"
+names(trac_wages)[names(trac_wages) == "total_value"] <- "count"
 
 save(trac_wages, file = "../data/nhgis_qcew_trac_wages.Rdata")
 
