@@ -15,13 +15,14 @@ library('sf')
 library('zoo')
 library('ggplot2')
 
+# working directory 
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
 
 # loading data ----
 load("../data/nhgis_qcew_trac_employ.Rdata")
 load("../data/nhgis_qcew_trac_wages.Rdata")
 
-# building out additional variables ----
+# Cleaning and subsetting ----
 #making demeaned version, z score version, and inverse hyperbolic sine version
 trac_employment <- trac_employment %>%
   ungroup() %>%
@@ -68,7 +69,10 @@ trac_wages <- trac_wages %>%
   group_by(area_fips) %>%
   filter(any(count >=1))
 
-########* employment, z score ##############
+# preliminary employment graphs ----
+#* employment, z score ----
+
+# other
 ggplot(subset(trac_employment)) +
   aes(count, z_score_other) + geom_point(size = .5) +  
   geom_smooth(method = "lm", se = FALSE) +  # Linear regression line, no confidence interval
@@ -80,7 +84,7 @@ ggplot(subset(trac_employment)) +
 #regression
 summary(lm(z_score_other ~ count, data = trac_employment))
 
-
+# restaurant
 ggplot(subset(trac_employment)) +
   aes(count, z_score_rest) + geom_point(size = .5) +  
   geom_smooth(method = "lm", se = FALSE) +  # Linear regression line, no confidence interval
@@ -92,7 +96,7 @@ ggplot(subset(trac_employment)) +
 #regression
 summary(lm(z_score_rest ~ count, data = trac_employment))
 
-
+# construction
 ggplot(subset(trac_employment)) +
   aes(count, z_score_const) + geom_point(size = .5) +  
   geom_smooth(method = "lm", se = FALSE) +  # Linear regression line, no confidence interval
@@ -104,7 +108,9 @@ ggplot(subset(trac_employment)) +
 #regression
 summary(lm(z_score_const ~ count, data = trac_employment))
 
-########* employment, demeaned ##############
+#* employment, demeaned ----
+
+# other
 ggplot(subset(trac_employment )) +
   aes(count, demeaned_other ) + 
   geom_point(size = .5) +
@@ -116,6 +122,7 @@ ggplot(subset(trac_employment )) +
 #regression
 summary(lm(demeaned_other ~ count, data = trac_employment))
 
+# restaurant
 ggplot(subset(trac_employment)) +
   aes(count, demeaned_rest) + 
   geom_point(size = .5) +
@@ -127,6 +134,7 @@ ggplot(subset(trac_employment)) +
 #regression
 summary(lm(demeaned_rest ~ count, data = trac_employment))
 
+# construction
 ggplot(subset(trac_employment)) +
   aes(count, demeaned_const) + 
   geom_point(size = .5) +
@@ -138,7 +146,8 @@ ggplot(subset(trac_employment)) +
 #regression
 summary(lm(demeaned_const ~ count, data = trac_employment))
 
-########* employment, log log  ##############
+#* employment, log log  -----
+# other
 ggplot(subset(trac_employment, count > 0 )) +
   aes(ihs_count, ihs_emp_other ) + 
   geom_point(size = .5) +
@@ -151,7 +160,7 @@ summary(lm(ihs_emp_other ~ ihs_count, data = trac_employment))
 summary(lm(ihs_emp_rest ~ ihs_count, data = trac_employment))
 summary(lm(ihs_emp_const ~ ihs_count, data = trac_employment))
 
-
+# restaurant
 ggplot(subset(trac_employment, count > 0 )) +
   aes(ihs_count, ihs_emp_rest) + 
   geom_point(size = .5) +
@@ -161,6 +170,7 @@ ggplot(subset(trac_employment, count > 0 )) +
     y = "logged employment in restaurants",  
     title = "arrest count vs restaurants employment") + theme_bw()
 
+# construction
 ggplot(subset(trac_employment, count > 0 )) +
   aes(ihs_count, ihs_emp_const) + 
   geom_point(size = .5) +
@@ -170,10 +180,13 @@ ggplot(subset(trac_employment, count > 0 )) +
     y = "logged employment in construction",  
     title = "arrest count vs construction employment" ) + theme_bw()
 mean(trac_wages$count)
-################ plotting wages - full dataset ##################################
-########*  wages, z score ##############
+
+# Preliminary wage graphs ----
+#*  wages, z score ----
+#*  
+# other
 ggplot(subset(trac_wages)) +
-  aes(total_value, z_score_other) + 
+  aes(count, z_score_other) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
@@ -182,6 +195,7 @@ ggplot(subset(trac_wages)) +
     title = "arrest count vs other industries" ) + theme_bw()
 summary(lm(z_score_other ~ count, data = trac_wages))
 
+# restaurants
 ggplot(subset(trac_wages)) +
   aes(count, z_score_rest) + 
   geom_point(size = .5) +
@@ -192,6 +206,7 @@ ggplot(subset(trac_wages)) +
     title = "arrest count vs restaurants wages") + theme_bw()
 summary(lm(z_score_rest ~ count, data = trac_wages))
 
+# construction
 ggplot(subset(trac_wages)) +
   aes(count, z_score_const) + 
   geom_point(size = .5) +
@@ -202,7 +217,9 @@ ggplot(subset(trac_wages)) +
     title = "arrest count vs construction wages" ) + theme_bw()
 summary(lm(z_score_const ~ count, data = trac_wages))
 
-########* wages, demeaned ##############
+#* wages, demeaned ----
+
+# other
 ggplot(subset(trac_wages)) +
   aes(count, demeaned_other ) + 
   geom_point(size = .5) +
@@ -213,6 +230,7 @@ ggplot(subset(trac_wages)) +
     title = "arrest count vs other industries" ) + theme_bw()
 summary(lm(demeaned_other ~ count, data = trac_wages))
 
+# restaurant
 ggplot(subset(trac_wages)) +
   aes(count, demeaned_rest) + 
   geom_point(size = .5) +
@@ -223,6 +241,7 @@ ggplot(subset(trac_wages)) +
     title = "arrest count vs restaurants wage") + theme_bw()
 summary(lm(demeaned_rest ~ count, data = trac_wages))
 
+# construction
 ggplot(subset(trac_wages)) +
   aes(count, demeaned_const) + 
   geom_point(size = .5) +
@@ -233,8 +252,9 @@ ggplot(subset(trac_wages)) +
     title = "arrest count vs construction wage" ) + theme_bw()
 summary(lm(demeaned_const ~ count, data = trac_wages))
 
+#* wages, log log  ----
 
-########* wages, log log  ##############
+# other
 ggplot(subset(trac_wages, count > 0 )) +
   aes(ihs_wage_count, ihs_wage_other ) + 
   geom_point(size = .5) +
@@ -244,6 +264,7 @@ ggplot(subset(trac_wages, count > 0 )) +
     y = "logged wage in other industries",  
     title = "arrest count vs other industries" ) + theme_bw()
 
+# restaurant
 ggplot(subset(trac_wages, count > 0 )) +
   aes(ihs_wage_count, ihs_wage_rest) + 
   geom_point(size = .5) +
@@ -253,6 +274,7 @@ ggplot(subset(trac_wages, count > 0 )) +
     y = "logged wage in restaurants",  
     title = "arrest count vs restaurants wage") + theme_bw()
 
+# construction
 ggplot(subset(trac_wages, count > 0 )) +
   aes(ihs_wage_count, ihs_wage_const) + 
   geom_point(size = .5) +
@@ -262,137 +284,10 @@ ggplot(subset(trac_wages, count > 0 )) +
     y = "logged wage in construction",  
     title = "arrest count vs construction wage" ) + theme_bw()
 
-##### plotting wages, only treated subset #####
-###* treated wages, z score ####
-ggplot(trac_wages_treatment) +
-  aes(count, z_score_other) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "z score wages in other industries",  
-    title = "arrest count vs other industries" ) + theme_bw()
-
-ggplot(trac_wages_treatment) +
-  aes(count, z_score_rest) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "z score wages in restaurants",  
-    title = "arrest count vs restaurants wages") + theme_bw()
-
-ggplot(trac_wages_treatment) +
-  aes(count, z_score_const) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "z score wages in construction",  
-    title = "arrest count vs construction wages" ) + theme_bw()
-
-########* treated wages, demeaned ##############
-ggplot(trac_wages_treatment) +
-  aes(count, demeaned_other ) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "demeaned wage in other industries",  
-    title = "arrest count vs other industries" ) + theme_bw()
-
-ggplot(trac_wages_treatment) +
-  aes(count, demeaned_rest) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "demeaned wage in restaurants",  
-    title = "arrest count vs restaurants wage") + theme_bw()
-
-ggplot(trac_wages_treatment) +
-  aes(count, demeaned_const) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "demeaned wage in construction",  
-    title = "arrest count vs construction wage" ) + theme_bw()
-
-##### plotting employment, only treated subset #####
-###* treated employment, z score ####
-
-ggplot(trac_employ_treatment) +
-  aes(count, z_score_other) + geom_point(size = .5) +  
-  geom_smooth(method = "lm", se = FALSE) +  # Linear regression line, no confidence interval
-  labs(x = "Arrest Count", y = "Z-score Employment in Other Industries",  
-       title = "Arrest Count vs Other Industries"
-  ) + 
-  theme_bw() + stat_smooth(
-    method = "lm")
-
-ggplot(trac_employ_treatment) +
-  aes(count, z_score_rest) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "z score employment in restaurants",  
-    title = "arrest count vs restaurants employment") + theme_bw()
-
-ggplot(trac_employ_treatment) +
-  aes(count, z_score_const) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "z score employment in construction",  
-    title = "arrest count vs construction employment" ) + theme_bw()
-
-###* treated employment, demeaned ####
-ggplot(trac_employ_treatment) +
-  aes(count, demeaned_other ) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "demeaned employment in other industries",  
-    title = "arrest count vs other industries" ) + theme_bw()
-
-ggplot(trac_employ_treatment) +
-  aes(count, demeaned_rest) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "demeaned employment in restaurants",  
-    title = "arrest count vs restaurants employment") + theme_bw()
-
-ggplot(trac_employ_treatment) +
-  aes(count, demeaned_const) + 
-  geom_point(size = .5) +
-  geom_smooth(method = "lm") +
-  labs(
-    x = "arrest count", 
-    y = "demeaned employment in construction",  
-    title = "arrest count vs construction employment" ) + theme_bw()
-
-#model
-summary(lm(demeaned_other ~ count, trac_employ_treatment))
-
-trac_employ_treatment <- trac_employ_treatment %>% 
+# plotting wages, only treated subset ----
+trac_wages_treatment <- trac_wages %>% 
   group_by(area_fips) %>%
-  mutate(change_emp_other = monthly_emplvl_other - lag(monthly_emplvl_other)) %>%
-  mutate(change_emp_rest = monthly_emplvl_rest - lag(monthly_emplvl_rest)) %>%
-  mutate(change_emp_const = monthly_emplvl_const - lag(monthly_emplvl_const)) 
-
-#dropping super strange numbers from censoring
-trac_employ_treatment <- subset(trac_employ_treatment, change_emp_other <= 10000)
-trac_employ_treatment <- subset(trac_employ_treatment, change_emp_rest <= 10000)
-trac_employ_treatment <- subset(trac_employ_treatment, change_emp_const <= 10000)
-
-trac_wages_treatment <- trac_wages_treatment %>% 
-  group_by(area_fips) %>%
+  filter(any(count > 0)) %>%
   mutate(change_wage_other = avg_wkly_wage_other - lag(avg_wkly_wage_other)) %>%
   mutate(change_wage_rest = avg_wkly_wage_rest - lag(avg_wkly_wage_rest)) %>%
   mutate(change_wage_const = avg_wkly_wage_const - lag(avg_wkly_wage_const)) 
@@ -402,8 +297,154 @@ trac_wages_treatment <- subset(trac_wages_treatment, change_wage_other <= 5000)
 trac_wages_treatment <- subset(trac_wages_treatment, change_wage_rest <= 5000)
 trac_wages_treatment <- subset(trac_wages_treatment, change_wage_const <= 5000)
 
-##### plotting CHANGE in employment and arrests, only treated subset #####
-#### employment ####
+#* treated wages, z score ----
+
+# other
+ggplot(trac_wages_treatment) +
+  aes(count, z_score_other) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "z score wages in other industries",  
+    title = "arrest count vs other industries" ) + theme_bw()
+
+# restaurant
+ggplot(trac_wages_treatment) +
+  aes(count, z_score_rest) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "z score wages in restaurants",  
+    title = "arrest count vs restaurants wages") + theme_bw()
+
+# construction
+ggplot(trac_wages_treatment) +
+  aes(count, z_score_const) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "z score wages in construction",  
+    title = "arrest count vs construction wages" ) + theme_bw()
+
+#* treated wages, demeaned ----
+
+# other
+ggplot(trac_wages_treatment) +
+  aes(count, demeaned_other ) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "demeaned wage in other industries",  
+    title = "arrest count vs other industries" ) + theme_bw()
+
+# restaurant
+ggplot(trac_wages_treatment) +
+  aes(count, demeaned_rest) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "demeaned wage in restaurants",  
+    title = "arrest count vs restaurants wage") + theme_bw()
+
+# construction
+ggplot(trac_wages_treatment) +
+  aes(count, demeaned_const) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "demeaned wage in construction",  
+    title = "arrest count vs construction wage" ) + theme_bw()
+
+# plotting employment, only treated subset ----
+
+trac_employ_treatment <- trac_employment %>% 
+  group_by(area_fips) %>%
+  filter(any(count > 0)) %>%
+  mutate(change_emp_other = monthly_emplvl_other - lag(monthly_emplvl_other)) %>%
+  mutate(change_emp_rest = monthly_emplvl_rest - lag(monthly_emplvl_rest)) %>%
+  mutate(change_emp_const = monthly_emplvl_const - lag(monthly_emplvl_const)) 
+
+#dropping super strange numbers from censoring
+trac_employ_treatment <- subset(trac_employ_treatment, change_emp_other <= 10000)
+trac_employ_treatment <- subset(trac_employ_treatment, change_emp_rest <= 10000)
+trac_employ_treatment <- subset(trac_employ_treatment, change_emp_const <= 10000)
+
+#* treated employment, z score ----
+
+# other
+ggplot(trac_employ_treatment) +
+  aes(count, z_score_other) + geom_point(size = .5) +  
+  geom_smooth(method = "lm", se = FALSE) +  # Linear regression line, no confidence interval
+  labs(x = "Arrest Count", y = "Z-score Employment in Other Industries",  
+       title = "Arrest Count vs Other Industries"
+  ) + 
+  theme_bw() + stat_smooth(
+    method = "lm")
+
+# restaurant
+ggplot(trac_employ_treatment) +
+  aes(count, z_score_rest) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "z score employment in restaurants",  
+    title = "arrest count vs restaurants employment") + theme_bw()
+
+# construction
+ggplot(trac_employ_treatment) +
+  aes(count, z_score_const) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "z score employment in construction",  
+    title = "arrest count vs construction employment" ) + theme_bw()
+
+#* treated employment, demeaned ----
+
+# other
+ggplot(trac_employ_treatment) +
+  aes(count, demeaned_other ) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "demeaned employment in other industries",  
+    title = "arrest count vs other industries" ) + theme_bw()
+
+# restaurant
+ggplot(trac_employ_treatment) +
+  aes(count, demeaned_rest) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "demeaned employment in restaurants",  
+    title = "arrest count vs restaurants employment") + theme_bw()
+
+# contruction
+ggplot(trac_employ_treatment) +
+  aes(count, demeaned_const) + 
+  geom_point(size = .5) +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "arrest count", 
+    y = "demeaned employment in construction",  
+    title = "arrest count vs construction employment" ) + theme_bw()
+#model
+summary(lm(demeaned_other ~ count, trac_employ_treatment))
+
+# plotting changes in employment -----
+# only treated subset
+
+# other
 ggplot(trac_employ_treatment) +
   aes(x = count, y = change_emp_other) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
@@ -418,6 +459,7 @@ ggplot(trac_employ_treatment) +
 summary(lm(change_emp_other ~ count, trac_employ_treatment))
 summary(lm(change_emp_other ~ no_cap_arrests, trac_employ_treatment))
 
+# restaurant
 ggplot(trac_employ_treatment) +
   aes(x = count, y = change_emp_rest) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
@@ -432,6 +474,7 @@ ggplot(trac_employ_treatment) +
 summary(lm(change_emp_rest ~ count, trac_employ_treatment))
 summary(lm(change_emp_rest ~ no_cap_arrests, trac_employ_treatment))
 
+# construction
 ggplot(trac_employ_treatment) +
   aes(x = count, y = change_emp_const) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
@@ -446,7 +489,9 @@ ggplot(trac_employ_treatment) +
 summary(lm(change_emp_const ~ count, trac_employ_treatment))
 summary(lm(change_emp_const ~ no_cap_arrests, trac_employ_treatment))
 
-###### * wages ########
+# Plotting change in wages ----
+
+# other
 ggplot(trac_wages_treatment) +
   aes(x = count, y = change_wage_other) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
@@ -461,6 +506,7 @@ ggplot(trac_wages_treatment) +
 summary(lm(change_wage_other ~ count, trac_wages_treatment))
 summary(lm(change_wage_other ~ total_nocap, trac_wages_treatment))
 
+# restaurant 
 ggplot(trac_wages_treatment) +
   aes(x = count, y = change_wage_rest) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
@@ -475,9 +521,9 @@ ggplot(trac_wages_treatment) +
 summary(lm(change_wage_rest ~ count, trac_wages_treatment))
 summary(lm(change_wage_rest ~ total_nocap, trac_wages_treatment))
 
-
+# construction
 ggplot(trac_wages_treatment) +
-  aes(x = total_value, y = change_wage_const) + 
+  aes(x = count, y = change_wage_const) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
   geom_smooth(aes(x = total_value), method = "lm", se = FALSE, color = "blue") +  # Linear regression line for count
   geom_smooth(aes(x = total_nocap), method = "lm", se = FALSE, color = "red") +  # Linear regression line for count_new
@@ -490,8 +536,8 @@ ggplot(trac_wages_treatment) +
 summary(lm(change_wage_const ~ total_value, trac_wages_treatment))
 summary(lm(change_wage_const ~ total_nocap, trac_wages_treatment))
 
-############ quadratics ###############
-########### * employment #############
+# employment - quadratics ----
+# other
 ggplot(subset(trac_employ_treatment )) +
   aes(count, demeaned_other ) + 
   geom_point(size = .5) +
@@ -502,6 +548,7 @@ ggplot(subset(trac_employ_treatment )) +
     title = "arrest count vs other industries" ) + theme_bw()
 summary(lm(demeaned_other ~ count^2, trac_employ_treatment))
 
+# restaurant
 ggplot(subset(trac_employ_treatment )) +
   aes(count, demeaned_rest ) + 
   geom_point(size = .5) +
@@ -512,6 +559,7 @@ ggplot(subset(trac_employ_treatment )) +
     title = "arrest count vs other industries" ) + theme_bw()
 summary(lm(demeaned_rest ~ count^2, trac_employ_treatment))
 
+# construction 
 ggplot(subset(trac_employ_treatment )) +
   aes(count, demeaned_const ) + 
   geom_point(size = .5) +
@@ -522,8 +570,8 @@ ggplot(subset(trac_employ_treatment )) +
     title = "arrest count vs other industries" ) + theme_bw()
 summary(lm(demeaned_const ~ count^2, trac_employ_treatment))
 
-############ pulling out year_mon fixed effects ###############
-########### * employment #############
+# Employment, linear trend, pulling out year_mon fixed effects ----
+
 #adding a yearmon column
 trac_employ_treatment$yearmon <- as.yearmon(paste(trac_employ_treatment$year, trac_employ_treatment$month, sep = "-"))
 
@@ -533,6 +581,7 @@ trac_employ_treatment$predicted_rest <- predict(model)
 slope <- coef(model)["count"]
 slope_label <- paste0("Slope = ", round(slope, 3))
 # Now, create the plot with a linear regression line using predicted values
+
 ggplot(trac_employ_treatment) +
   aes(x = count, y = predicted_rest) + 
   geom_point(size = .5) +  # Scatterplot for the count variable
@@ -577,8 +626,9 @@ ggplot(trac_employ_treatment) +
        title = "Arrest Count vs Change in Employment in Other industries with Time Fixed Effect") + 
   theme_bw() 
 
-########### * wages #############
-model <- lm(change_wage_rest ~ total_value + factor(year_qtr), data = trac_wages_treatment)
+# Wages, year_mon fixed effects with linear trend line ----
+
+model <- lm(change_wage_rest ~ count + factor(year_qtr), data = trac_wages_treatment)
 # Generate the predicted values based on the model
 trac_wages_treatment$predicted_rest <- predict(model)
 slope <- coef(model)["total_value"]
@@ -598,7 +648,7 @@ model <- lm(change_wage_const ~  count + factor(year_qtr), data = trac_wages_tre
 summary(model)
 # Generate the predicted values based on the model
 trac_wages_treatment$predicted_const <- predict(model)
-slope <- coef(model)["total_value"]
+slope <- coef(model)["count"]
 slope_label <- paste0("Slope = ", round(slope, 3))
 # Now, create the plot with a linear regression line using predicted values
 ggplot(trac_wages_treatment) +
@@ -611,7 +661,7 @@ ggplot(trac_wages_treatment) +
        title = "Arrest Count vs Change in Wage in Const with Time Fixed Effect") + 
   theme_bw() 
 
-model <- lm(change_wage_other ~  total_value + factor(year_qtr), data = trac_wages_treatment)
+model <- lm(change_wage_other ~  count + factor(year_qtr), data = trac_wages_treatment)
 summary(model)
 # Generate the predicted values based on the model
 trac_wages_treatment$predicted_oth <- predict(model)
