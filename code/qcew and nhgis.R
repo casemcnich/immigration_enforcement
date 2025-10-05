@@ -391,6 +391,8 @@ trac_wages <- merge(x = trac_wages, y = nhgis,
                  by.y = c("area_fips", "year"), 
                  all.x = TRUE)
 
+names(trac_wages)[names(trac_wages) == "county.x"] <- "county"
+
 save(trac_wages, file = "../data/nhgis_qcew_trac_wages.Rdata")
 
 # employment
@@ -398,4 +400,7 @@ trac_employment <- merge(x = trac_employment, y = nhgis,
                     by.x = c("area_fips", "year"), 
                     by.y = c("area_fips", "year"), 
                     all.x = TRUE)
+
+names(trac_employment)[names(trac_employment) == "county.x"] <- "county"
+
 save(trac_employment, file = "../data/nhgis_qcew_trac_employ.Rdata")
