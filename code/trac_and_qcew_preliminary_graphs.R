@@ -9,23 +9,23 @@ library('stringr')
 library('tidyr')
 library('dplyr')
 library('usdata')
-library(lubridate)
-library(vtable)
-library(sf)
-library(zoo)
-library(ggplot2)
+library('lubridate')
+library('vtable')
+library('sf')
+library('zoo')
+library('ggplot2')
+
+setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
 
 # loading data ----
 load("../data/nhgis_qcew_trac_employ.Rdata")
 load("../data/nhgis_qcew_trac_wages.Rdata")
 
-# data cleaning ---
-
-# building out additional variables
-
+# building out additional variables ----
 #making demeaned version, z score version, and inverse hyperbolic sine version
-trac_employment = trac_employment %>%
-  group_by(area_title) %>%
+trac_employment <- trac_employment %>%
+  ungroup() %>%
+  group_by(area_fips) %>%
   #z score  version
   mutate(z_score_other = scale(monthly_emplvl_other)) %>%
   mutate(z_score_rest = scale(monthly_emplvl_rest)) %>%  
@@ -41,10 +41,9 @@ trac_employment = trac_employment %>%
   mutate( ihs_count = log(count + ((count^2 +1)^0.5))) %>%
   mutate( ihs_non_cap = log(no_cap_arrests + ((no_cap_arrests^2 +1)^0.5)))
 
-
 #making demeaned version, z score version, and inverse hyperbolic sine version
 trac_wages = trac_wages %>%
-  group_by(area_title) %>%
+  group_by(area_fips) %>%
   #z score  version
   mutate(z_score_other = scale(avg_wkly_wage_other)) %>%
   mutate(z_score_rest = scale(avg_wkly_wage_rest)) %>%  
@@ -57,18 +56,17 @@ trac_wages = trac_wages %>%
   mutate(ihs_wage_other = log(avg_wkly_wage_other + ((avg_wkly_wage_other^2 +1)^0.5))) %>%
   mutate (ihs_wage_rest = log(avg_wkly_wage_rest + ((avg_wkly_wage_rest^2 +1)^0.5))) %>%
   mutate( ihs_wage_const = log(avg_wkly_wage_const + ((avg_wkly_wage_const^2 +1)^0.5))) %>%
-  mutate( ihs_wage_count = log(total_value + ((total_value^2 +1)^0.5))) %>%
+  mutate( ihs_wage_count = log(count + ((count^2 +1)^0.5))) %>%
   mutate( ihs_no_cap = log(total_nocap + ((total_nocap^2 +1)^0.5)))
 
 # subset to counties that ever had an arrest 
 trac_employment <- trac_employment %>%
-  group_by(county) %>%
+  group_by(area_fips) %>%
   filter(any(count >= 1))
 
 trac_wages <- trac_wages %>%
-  group_by(county) %>%
-  filter(any(total_value >=1))
-
+  group_by(area_fips) %>%
+  filter(any(count >=1))
 
 ########* employment, z score ##############
 ggplot(subset(trac_employment)) +
@@ -149,9 +147,9 @@ ggplot(subset(trac_employment, count > 0 )) +
     x = "logged arrest count", 
     y = "logged employment in other industries",  
     title = "arrest count vs other industries" ) + theme_bw()
-summary(lm(ihs_emp_other ~ ihs_count, data = trac_employ_treatment))
-summary(lm(ihs_emp_rest ~ ihs_count, data = trac_employ_treatment))
-summary(lm(ihs_emp_const ~ ihs_count, data = trac_employ_treatment))
+summary(lm(ihs_emp_other ~ ihs_count, data = trac_employment))
+summary(lm(ihs_emp_rest ~ ihs_count, data = trac_employment))
+summary(lm(ihs_emp_const ~ ihs_count, data = trac_employment))
 
 
 ggplot(subset(trac_employment, count > 0 )) +
@@ -182,62 +180,62 @@ ggplot(subset(trac_wages)) +
     x = "arrest count", 
     y = "z score wages in other industries",  
     title = "arrest count vs other industries" ) + theme_bw()
-summary(lm(z_score_other ~ total_value, data = trac_wages))
+summary(lm(z_score_other ~ count, data = trac_wages))
 
 ggplot(subset(trac_wages)) +
-  aes(total_value, z_score_rest) + 
+  aes(count, z_score_rest) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
     x = "arrest count", 
     y = "z score wages in restaurants",  
     title = "arrest count vs restaurants wages") + theme_bw()
-summary(lm(z_score_rest ~ total_value, data = trac_wages))
+summary(lm(z_score_rest ~ count, data = trac_wages))
 
 ggplot(subset(trac_wages)) +
-  aes(total_value, z_score_const) + 
+  aes(count, z_score_const) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
     x = "arrest count", 
     y = "z score wages in construction",  
     title = "arrest count vs construction wages" ) + theme_bw()
-summary(lm(z_score_const ~ total_value, data = trac_wages))
+summary(lm(z_score_const ~ count, data = trac_wages))
 
 ########* wages, demeaned ##############
 ggplot(subset(trac_wages)) +
-  aes(total_value, demeaned_other ) + 
+  aes(count, demeaned_other ) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
     x = "arrest count", 
     y = "demeaned wage in other industries",  
     title = "arrest count vs other industries" ) + theme_bw()
-summary(lm(demeaned_other ~ total_value, data = trac_wages))
+summary(lm(demeaned_other ~ count, data = trac_wages))
 
 ggplot(subset(trac_wages)) +
-  aes(total_value, demeaned_rest) + 
+  aes(count, demeaned_rest) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
     x = "arrest count", 
     y = "demeaned wage in restaurants",  
     title = "arrest count vs restaurants wage") + theme_bw()
-summary(lm(demeaned_rest ~ total_value, data = trac_wages))
+summary(lm(demeaned_rest ~ count, data = trac_wages))
 
 ggplot(subset(trac_wages)) +
-  aes(total_value, demeaned_const) + 
+  aes(count, demeaned_const) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
     x = "arrest count", 
     y = "demeaned wage in construction",  
     title = "arrest count vs construction wage" ) + theme_bw()
-summary(lm(demeaned_const ~ total_value, data = trac_wages))
+summary(lm(demeaned_const ~ count, data = trac_wages))
 
 
 ########* wages, log log  ##############
-ggplot(subset(trac_wages, total_value > 0 )) +
+ggplot(subset(trac_wages, count > 0 )) +
   aes(ihs_wage_count, ihs_wage_other ) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
@@ -246,7 +244,7 @@ ggplot(subset(trac_wages, total_value > 0 )) +
     y = "logged wage in other industries",  
     title = "arrest count vs other industries" ) + theme_bw()
 
-ggplot(subset(trac_wages, total_value > 0 )) +
+ggplot(subset(trac_wages, count > 0 )) +
   aes(ihs_wage_count, ihs_wage_rest) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
@@ -255,7 +253,7 @@ ggplot(subset(trac_wages, total_value > 0 )) +
     y = "logged wage in restaurants",  
     title = "arrest count vs restaurants wage") + theme_bw()
 
-ggplot(subset(trac_wages, total_value > 0 )) +
+ggplot(subset(trac_wages, count > 0 )) +
   aes(ihs_wage_count, ihs_wage_const) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
@@ -267,7 +265,7 @@ ggplot(subset(trac_wages, total_value > 0 )) +
 ##### plotting wages, only treated subset #####
 ###* treated wages, z score ####
 ggplot(trac_wages_treatment) +
-  aes(total_value, z_score_other) + 
+  aes(count, z_score_other) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
@@ -276,7 +274,7 @@ ggplot(trac_wages_treatment) +
     title = "arrest count vs other industries" ) + theme_bw()
 
 ggplot(trac_wages_treatment) +
-  aes(total_value, z_score_rest) + 
+  aes(count, z_score_rest) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
@@ -285,7 +283,7 @@ ggplot(trac_wages_treatment) +
     title = "arrest count vs restaurants wages") + theme_bw()
 
 ggplot(trac_wages_treatment) +
-  aes(total_value, z_score_const) + 
+  aes(count, z_score_const) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
@@ -295,7 +293,7 @@ ggplot(trac_wages_treatment) +
 
 ########* treated wages, demeaned ##############
 ggplot(trac_wages_treatment) +
-  aes(total_value, demeaned_other ) + 
+  aes(count, demeaned_other ) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
@@ -304,7 +302,7 @@ ggplot(trac_wages_treatment) +
     title = "arrest count vs other industries" ) + theme_bw()
 
 ggplot(trac_wages_treatment) +
-  aes(total_value, demeaned_rest) + 
+  aes(count, demeaned_rest) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
@@ -313,7 +311,7 @@ ggplot(trac_wages_treatment) +
     title = "arrest count vs restaurants wage") + theme_bw()
 
 ggplot(trac_wages_treatment) +
-  aes(total_value, demeaned_const) + 
+  aes(count, demeaned_const) + 
   geom_point(size = .5) +
   geom_smooth(method = "lm") +
   labs(
@@ -383,7 +381,7 @@ ggplot(trac_employ_treatment) +
 summary(lm(demeaned_other ~ count, trac_employ_treatment))
 
 trac_employ_treatment <- trac_employ_treatment %>% 
-  group_by(area_title) %>%
+  group_by(area_fips) %>%
   mutate(change_emp_other = monthly_emplvl_other - lag(monthly_emplvl_other)) %>%
   mutate(change_emp_rest = monthly_emplvl_rest - lag(monthly_emplvl_rest)) %>%
   mutate(change_emp_const = monthly_emplvl_const - lag(monthly_emplvl_const)) 
@@ -394,7 +392,7 @@ trac_employ_treatment <- subset(trac_employ_treatment, change_emp_rest <= 10000)
 trac_employ_treatment <- subset(trac_employ_treatment, change_emp_const <= 10000)
 
 trac_wages_treatment <- trac_wages_treatment %>% 
-  group_by(area_title) %>%
+  group_by(area_fips) %>%
   mutate(change_wage_other = avg_wkly_wage_other - lag(avg_wkly_wage_other)) %>%
   mutate(change_wage_rest = avg_wkly_wage_rest - lag(avg_wkly_wage_rest)) %>%
   mutate(change_wage_const = avg_wkly_wage_const - lag(avg_wkly_wage_const)) 
@@ -450,21 +448,21 @@ summary(lm(change_emp_const ~ no_cap_arrests, trac_employ_treatment))
 
 ###### * wages ########
 ggplot(trac_wages_treatment) +
-  aes(x = total_value, y = change_wage_other) + 
+  aes(x = count, y = change_wage_other) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
-  geom_smooth(aes(x = total_value), method = "lm", se = FALSE, color = "blue") +  # Linear regression line for count
-  geom_smooth(aes(x = total_nocap), method = "lm", se = FALSE, color = "red") +  # Linear regression line for count_new
+  geom_smooth(aes(x = count), method = "lm", se = FALSE, color = "blue") +  # Linear regression line for count
+  geom_smooth(aes(x = count), method = "lm", se = FALSE, color = "red") +  # Linear regression line for count_new
   labs(x = "Arrest Counts", 
        y = "Change in Wage in Other Industries",  
        title = "Arrest Count vs Change in Wage in Other Industries") + 
   theme_bw() + 
   coord_cartesian(xlim = c(0, 1000), ylim = c(-500, 500))  # Adjust x and y limits for zoom
 
-summary(lm(change_wage_other ~ total_value, trac_wages_treatment))
+summary(lm(change_wage_other ~ count, trac_wages_treatment))
 summary(lm(change_wage_other ~ total_nocap, trac_wages_treatment))
 
 ggplot(trac_wages_treatment) +
-  aes(x = total_value, y = change_wage_rest) + 
+  aes(x = count, y = change_wage_rest) + 
   geom_point(size = .5) +  # Scatterplot for the first count variable
   geom_smooth(aes(x = total_value), method = "lm", se = FALSE, color = "blue") +  # Linear regression line for count
   geom_smooth(aes(x = total_nocap), method = "lm", se = FALSE, color = "red") +  # Linear regression line for count_new
@@ -474,7 +472,7 @@ ggplot(trac_wages_treatment) +
   theme_bw() + 
   coord_cartesian(xlim = c(0, 1000), ylim = c(-300, 300))  # Adjust x and y limits for zoom
 
-summary(lm(change_wage_rest ~ total_value, trac_wages_treatment))
+summary(lm(change_wage_rest ~ count, trac_wages_treatment))
 summary(lm(change_wage_rest ~ total_nocap, trac_wages_treatment))
 
 
@@ -587,7 +585,7 @@ slope <- coef(model)["total_value"]
 slope_label <- paste0("Slope = ", round(slope, 3))
 # Now, create the plot with a linear regression line using predicted values
 ggplot(trac_wages_treatment) +
-  aes(x = total_value, y = predicted_rest) + 
+  aes(x = count, y = predicted_rest) + 
   geom_point(size = .5) +  # Scatterplot for the count variable
   geom_smooth(aes(y = predicted_rest), color = "blue", linewidth = 1) +  # Linear regression line with fixed effects
   annotate("text", x = Inf, y = -Inf, label = slope_label, hjust = 1.1, vjust = -1.1, size = 4, color = "blue") +
@@ -596,7 +594,7 @@ ggplot(trac_wages_treatment) +
        title = "Arrest Count vs Change in Wage in Rest with Time Fixed Effect") + 
   theme_bw() 
 
-model <- lm(change_wage_const ~  total_value + factor(year_qtr), data = trac_wages_treatment)
+model <- lm(change_wage_const ~  count + factor(year_qtr), data = trac_wages_treatment)
 summary(model)
 # Generate the predicted values based on the model
 trac_wages_treatment$predicted_const <- predict(model)
@@ -604,7 +602,7 @@ slope <- coef(model)["total_value"]
 slope_label <- paste0("Slope = ", round(slope, 3))
 # Now, create the plot with a linear regression line using predicted values
 ggplot(trac_wages_treatment) +
-  aes(x = total_value, y = predicted_const) + 
+  aes(x = count, y = predicted_const) + 
   geom_point(size = .5) +  # Scatterplot for the count variable
   geom_smooth(aes(y = predicted_const), color = "blue", linewidth = 1) +  # Linear regression line with fixed effects
   annotate("text", x = Inf, y = -Inf, label = slope_label, hjust = 1.1, vjust = -1.1, size = 4) +
@@ -621,7 +619,7 @@ slope <- coef(model)["total_value"]
 slope_label <- paste0("Slope = ", round(slope, 3))
 # Now, create the plot with a linear regression line using predicted values
 ggplot(trac_wages_treatment) +
-  aes(x = total_value, y = predicted_oth) + 
+  aes(x = count, y = predicted_oth) + 
   geom_point(size = .5) +  # Scatterplot for the count variable
   geom_smooth(aes(y = predicted_oth), color = "blue", linewidth = 1) +  # Linear regression line with fixed effects
   annotate("text", x = Inf, y = -Inf, label = slope_label, hjust = 1.1, vjust = -1.1, size = 4, color = "blue") +
