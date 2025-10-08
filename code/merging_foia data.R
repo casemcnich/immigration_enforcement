@@ -63,23 +63,25 @@ df$FORMATTED.FIPS  <- str_pad(df$FORMATTED.FIPS, width = 5, side = "left", pad =
 
 # merging the large df with the i247a dataframe ----
 
-# 1. Function to find the closest matching county in df for each county in detainers
+# 1 Function to find the closest matching county in df for each county in detainers
 find_closest_county <- function(county_name, county_list) {
   distances <- stringdist::stringdist(county_name, county_list, method = "jw")  # Jaro-Winkler distance
   closest_match <- county_list[which.min(distances)]  # Find the county with the smallest distance
   return(closest_match)
 }
 
-# 2. Apply fuzzy matching to the 'County' column in detainers dataset
+# 2 Apply fuzzy matching to the 'County' column in detainers dataset
 I247a$matched_county <- sapply(I247a$County, function(x) find_closest_county(x, df$County))
 
-# 3. Merge on both 'State' and the 'matched_county' column
+# 3 Merge on both 'State' and the 'matched_county' column
 df_I247a <- left_join(I247a, df, by = c("State" = "State", "matched_county" = "County"))
 
 # there are multiple jails in a county - > if any of the jails participate in the detainer program then 
 # detainer county ==1
 # so in this case a few duplicates are okay and the rows are functionally the same if I select 
 # the first item
+
+# there are 4 cases of multiple join 
 
 #this makes a new colum n
 df_I247a <- df_I247a %>%
@@ -93,25 +95,7 @@ df_I247a <- df_I247a %>%
 #checking that worked
 table(df_I247a$I247_flag)
 
-######## pairing with the map and nhgis merging variables #############
-#merging with the geo_ids from the tigerline maps
-load(file ="trac/match_vars.Rdata")
-
-df_I247a <- merge(
-  match_vars,
-  df_I247a,
-  by.x = c("GEOID", "abbrev"),
-  by.y = c("FORMATTED.FIPS", "State"),
-  all.x = TRUE
-)
-
-#subsetting so counties are distinct
-df_I247a <- df_I247a %>%
-  distinct(GEOID, .keep_all = TRUE)
-
-save(df_I247a, file = "df_I247a.Rdata")
-
-######################## pep ###########################
+# pep -----
 #delete any row where the state is missing
 pep <- pep %>%
   filter(!(nchar(State) == 0 | is.na(State)) & !(nchar(County) == 0 | is.na(County))) %>%
@@ -138,7 +122,6 @@ pep_df <- left_join(pep, df, by = c("State" = "State", "matched_county" = "Count
 pep_df <- pep_df %>%
   mutate(month_no_detainers = as.Date(month_no_detainers))  # Adjust the column name if needed
 
-
 #this makes a new colum n
 pep_df <- pep_df %>%
   group_by(GEOID...FIPS) %>%
@@ -151,7 +134,6 @@ pep_df <- pep_df %>%
 table(pep_df$no_detainers_flag)
 table(pep_df$Declines.287.g..Program)
 xtabs(~Declines.ICE.Detention.Contract + no_detainers_flag, data = pep_df) 
-  
 
 #getting rid of uneccessary columns
 pep_df <- subset(pep_df, select = c("Jail.or.Prison.Type", "County","State", "ICE.Access.to.Jail", "Accept_I247A", "Hold.For.ICE", "month_detainer", "matched_county", "FORMATTED.FIPS"))
@@ -160,6 +142,27 @@ df_detainers <- df_detainers[df_detainers$FORMATTED.FIPS != 0, ]
 
 #padding out the values with 0s
 df_detainers$FORMATTED.FIPS  <- str_pad(df_detainers$FORMATTED.FIPS, width = 5, side = "left", pad = "0")
+
+
+
+
+######## pairing with the map and nhgis merging variables #############
+#merging with the geo_ids from the tigerline maps
+load(file ="trac/match_vars.Rdata")
+
+df_I247a <- merge(
+  match_vars,
+  df_I247a,
+  by.x = c("GEOID", "abbrev"),
+  by.y = c("FORMATTED.FIPS", "State"),
+  all.x = TRUE
+)
+
+#subsetting so counties are distinct
+df_I247a <- df_I247a %>%
+  distinct(GEOID, .keep_all = TRUE)
+
+save(df_I247a, file = "df_I247a.Rdata")
 
 ############ merging with nhgis data ######################
 load("nhgis.Rdata")
