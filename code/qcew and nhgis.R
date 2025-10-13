@@ -404,3 +404,12 @@ trac_employment <- merge(x = trac_employment, y = nhgis,
 
 trac_employment <- subset(trac_employment, select = -county.x)
 save(trac_employment, file = "../data/nhgis_qcew_trac_employ.Rdata")
+
+
+# saving a nhgis county file for merging later ----
+county_list <- subset(total_employment_all, select =c( "county", "state", "area_fips"))
+county_list <- county_list %>% distinct()
+
+county_list$county <- gsub(" County", "", county_list$county, ignore.case = TRUE)
+
+save(county_list, file = "../data/counties.Rdata")
