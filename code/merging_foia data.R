@@ -17,14 +17,15 @@ library('dplyr')
 library('knitr')
 library('zoo')
 library('stargazer')
+library(stringr)
 
 # wd ----
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
 
 # loading the three datasets ----
-I247a <- read.csv("../data/foia/I247a.csv")
+I247a <- read.csv("../data/foia/detainers_10_10_25.csv")
 pep <- read.csv("../data/foia/PEP_2015.csv")
-df <- read.csv("../data/foia/map.csv")
+df <- read.csv("../data/foia/map_2.csv")
 
 # cleaning detainers ----
 
@@ -42,26 +43,45 @@ I247a <- I247a[, !(names(I247a) %in% c(
   "Jurisdiction.Policy.Number..Name.and.Description.of.a.policy.that.limits.cooperation.with.ICE",
   "Additional.Comments",
   "uncooperative", 
-  "Jail.or.Prison.Type", 
   "Month.and.Year.began.accepting.I.247A"                                                        
 ))]
 
+# drop state prisons
+I247a <- subset(I247a, Jail.or.Prison.Type == "County/City")
+# drop juvenile prisons
+I247a <- subset(I247a, Juvenile.Facility == "NO")
+
 # If not already in Date format, convert the date column
 # Convert the date column from day/month/year format to Date class
-I247a$month_I247a <- as.Date(I247a$month_I247a, format = "%d/%m/%Y")
-I247a$month_I247a <- as.yearmon(I247a$month_I247a)
+I247a$month_247a <- as.Date(I247a$month_247a, format = "%d/%m/%Y")
+I247a$month_247a <- as.yearmon(I247a$month_247a)
 #switching blanks to NA
-I247a$month_I247a [I247a$month_I247a  == ""] <- NA
+I247a$month_247a [I247a$month_247a  == ""] <- 0
 
-# cleaning large df ----
+# function to clean county names
+clean_county_state <- function(df) {
+  # Convert to lowercase first
+  df$County <- tolower(df$County)
+  # Capitalize first letter of each county name
+  substr(df$County, 1, 1) <- toupper(substr(df$County, 1, 1))
+  # Trim whitespace on the right side
+  df$County <- str_trim(df$County, side = "right")
+  # st to saint 
+  df$County <- gsub("St\\.", "Saint", df$County)
+  # Remove all periods
+  df$County <- gsub("\\.", "", df$County)
+  # Combine county and state into new column "county_state"
+  df$county_state <- paste0(df$County, ", ", df$State)
+  return(df)
+}
 
-#dropping 0s
-df <- df[df$FORMATTED.FIPS != 0, ]
-
-#padding out the values with 0s
-df$FORMATTED.FIPS  <- str_pad(df$FORMATTED.FIPS, width = 5, side = "left", pad = "0")
+# clean county names
+I247a <- clean_county_state (I247a)
 
 # merging the large df with the i247a dataframe ----
+
+# cleaning county names
+df <- clean_county_state(df)
 
 # 1 Function to find the closest matching county in df for each county in detainers
 find_closest_county <- function(county_name, county_list) {
@@ -71,11 +91,41 @@ find_closest_county <- function(county_name, county_list) {
 }
 
 # 2 Apply fuzzy matching to the 'County' column in detainers dataset
-I247a$matched_county <- sapply(I247a$County, function(x) find_closest_county(x, df$County))
+I247a$matched_county <- sapply(I247a$county_state, function(x) find_closest_county(x, df$county_state))
+
+# fixing two counties that had typos and not automatically match 
+#crowley 
+I247a$matched_county[I247a$`I247a_id` == 1405] <- "Tarrant, TX" 
+
+# decataur
+I247a$matched_county[I247a$`I247a_id` == 1413] <- "Wise, TX" 
 
 # 3 Merge on both 'State' and the 'matched_county' column
-df_I247a <- left_join(I247a, df, by = c("State" = "State", "matched_county" = "County"))
+df_I247a <- left_join(I247a, df, by = c("State" = "State", "matched_county" = "county_state"))
 
+# Fix counties that are real but had no match
+# Barry MO is a real county that is not in the df data - will add in FIPS
+df_I247a$FIPS[df_I247a$`I247a_id` == 669] <- 29009
+
+#* fixing missing counties -----
+# Starke, IN
+df_I247a$FIPS[df_I247a$`I247a_id` == 1228] <- 18149
+
+# Moore county Tx
+df_I247a$FIPS[df_I247a$`I247a_id` == 1554] <- 48341
+df_I247a$FIPS[df_I247a$`I247a_id` == 1423] <- 48341
+
+# morris county tx
+df_I247a$FIPS[df_I247a$`I247a_id` == 1555] <- 48343
+
+# williams county oh
+df_I247a$FIPS[df_I247a$`I247a_id` == 1827] <- 39173
+
+# drop beaver county 
+# drop beaver county TX - does not exist?
+df_I247a <- df_I247a[df_I247a$county_state != "Beaver, TX", ]
+
+#* resolving duplicate county observations with different first i247a dates
 # there are multiple jails in a county - > if any of the jails participate in the detainer program then 
 # detainer county ==1
 # so in this case a few duplicates are okay and the rows are functionally the same if I select 
@@ -83,17 +133,26 @@ df_I247a <- left_join(I247a, df, by = c("State" = "State", "matched_county" = "C
 
 # there are 4 cases of multiple join 
 
-#this makes a new colum n
+# drop empty county 
+df_I247a <- df_I247a[df_I247a$I247a_id != 3485, ]
+
+# dealing with different I247 by county
 df_I247a <- df_I247a %>%
-  group_by(GEOID...FIPS) %>%
-  mutate(
-    I247_flag = any(Accept_I247A == "YES"),
-    I247_date = if (all(is.na(month_I247a))) NA else month_I247a[which.min(month_I247a)]
-  ) %>%
+  group_by(FIPS) %>%
+  mutate(flag = n_distinct(month_247a) > 1) %>%
   ungroup()
 
-#checking that worked
-table(df_I247a$I247_flag)
+table(df_I247a$flag)
+
+# there are 48 issues in the data representing 10 conflicting counties (most large)
+fix <- subset(df_I247a, flag == 1)
+
+# if there are multiple jails in a county with different policies, go off the most 
+# pro ice policy since this would impact people the most
+
+# making new variables "month_247a_county" which is at the county level 
+df_I247a$month_247a_county <- df_I247a$month_247a
+
 
 # pep -----
 #delete any row where the state is missing
@@ -122,28 +181,33 @@ pep_df <- left_join(pep, df, by = c("State" = "State", "matched_county" = "Count
 pep_df <- pep_df %>%
   mutate(month_no_detainers = as.Date(month_no_detainers))  # Adjust the column name if needed
 
-#this makes a new colum n
-pep_df <- pep_df %>%
-  group_by(GEOID...FIPS) %>%
-  mutate(
-    no_detainers_flag = as.integer(!is.na(month_no_detainers)),
-    first_no_detainers = if (all(is.na(month_no_detainers))) NA else month_no_detainers[which.min(month_no_detainers)]
-  ) %>%
-  ungroup()
-#checking that worked
-table(pep_df$no_detainers_flag)
-table(pep_df$Declines.287.g..Program)
-xtabs(~Declines.ICE.Detention.Contract + no_detainers_flag, data = pep_df) 
-
-#getting rid of uneccessary columns
-pep_df <- subset(pep_df, select = c("Jail.or.Prison.Type", "County","State", "ICE.Access.to.Jail", "Accept_I247A", "Hold.For.ICE", "month_detainer", "matched_county", "FORMATTED.FIPS"))
 #dropping 0s
-df_detainers <- df_detainers[df_detainers$FORMATTED.FIPS != 0, ]
+pep_df <- pep_df[pep_df$FIPS != 0, ]
+pep_df <- pep_df[!is.na(pep_df$FIPS), ]
+
+# COME BACK TO FIX THESE
 
 #padding out the values with 0s
-df_detainers$FORMATTED.FIPS  <- str_pad(df_detainers$FORMATTED.FIPS, width = 5, side = "left", pad = "0")
+pep_df$FIPS  <- str_pad(pep_df$FIPS, width = 5, side = "left", pad = "0")
 
+# merging pep_df and df_I247a -----
+foia_df <- merge(df_I247a, pep_df, by = "FIPS", all.x = T)
 
+# there are some duplicates because there are some counties with multiple jails
+# isolate these duplicates
+df_no_duplicates <- df[!(duplicated(df_I247a$FIPS) | duplicated(df_I247a$FIPS, fromLast = TRUE)), ]
+
+df_duplicates <- df_I247a[duplicated(df_I247a$FIPS) | duplicated(df_I247a$FIPS, fromLast = TRUE), ]
+
+df_duplicates <- df_duplicates %>%
+  group_by(FIPS) %>%
+  mutate(
+    different_dates = n_distinct(month_247a) > 1,  # TRUE if more than one unique date
+    flag = if_else(different_dates, TRUE, FALSE)
+  ) %>%
+  ungroup()
+
+table(df_flagged$flag)
 
 
 ######## pairing with the map and nhgis merging variables #############
