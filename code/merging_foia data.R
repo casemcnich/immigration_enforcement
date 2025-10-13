@@ -54,9 +54,6 @@ I247a <- subset(I247a, Juvenile.Facility == "NO")
 # If not already in Date format, convert the date column
 # Convert the date column from day/month/year format to Date class
 I247a$month_247a <- as.Date(I247a$month_247a, format = "%d/%m/%Y")
-I247a$month_247a <- as.yearmon(I247a$month_247a)
-#switching blanks to NA
-I247a$month_247a [I247a$month_247a  == ""] <- 0
 
 # function to clean county names
 clean_county_state <- function(df) {
@@ -149,10 +146,61 @@ fix <- subset(df_I247a, flag == 1)
 
 # if there are multiple jails in a county with different policies, go off the most 
 # pro ice policy since this would impact people the most
+# OR go off of the contents of the map file
 
 # making new variables "month_247a_county" which is at the county level 
 df_I247a$month_247a_county <- df_I247a$month_247a
 
+# adjusting first treatment date for certain counties 
+df_I247a$month_247a_county[df_I247a$FIPS == 53077] <- as.Date("2014-01-01") #Yakima
+df_I247a$always_treated[df_I247a$FIPS == 53077] <- 1 #Yakima
+df_I247a$never_treated[df_I247a$FIPS == 53077] <- 0 #Yakima
+
+df_I247a$month_247a_county[df_I247a$FIPS == 53061] <- NA #Snohomish
+df_I247a$always_treated[df_I247a$FIPS == 53061] <- 0 #Snohomish
+df_I247a$never_treated[df_I247a$FIPS == 53061] <- 1 #Snohomish
+
+df_I247a$month_247a_county[df_I247a$FIPS == 6065] <- NA #Riverside
+df_I247a$always_treated[df_I247a$FIPS == 6065] <- 0 #Riverside
+df_I247a$never_treated[df_I247a$FIPS == 6065] <- 1 #Riverside
+
+df_I247a$month_247a_county[df_I247a$FIPS == 53053] <- as.Date("1999-01-01") #Pierce
+df_I247a$always_treated[df_I247a$FIPS == 53053] <- 1 #Pierce
+df_I247a$never_treated[df_I247a$FIPS == 53053] <- 0 #Pierce
+
+df_I247a$month_247a_county[df_I247a$FIPS == 35035] <- as.Date("1999-01-01") #Otero
+df_I247a$always_treated[df_I247a$FIPS == 35035] <- 1 #Otero
+df_I247a$never_treated[df_I247a$FIPS == 35035] <- 0 #Otero
+
+df_I247a$month_247a_county[df_I247a$FIPS == 6059] <- as.Date("1999-01-01") #orange
+df_I247a$always_treated[df_I247a$FIPS == 6059] <- 1 #orange
+df_I247a$never_treated[df_I247a$FIPS == 6059] <- 0 #orange
+
+df_I247a$month_247a_county[df_I247a$FIPS == 25017] <- as.Date("2017-02-01") #middlsex
+df_I247a$always_treated[df_I247a$FIPS == 25017] <- 0 #middlsex
+df_I247a$never_treated[df_I247a$FIPS == 25017] <- 0 #middlsex
+
+df_I247a$month_247a_county[df_I247a$FIPS == 12083] <- as.Date("1999-01-01") #marion
+df_I247a$always_treated[df_I247a$FIPS == 12083] <- 1 #marion
+df_I247a$never_treated[df_I247a$FIPS == 12083] <- 0 #marion
+
+df_I247a$month_247a_county[df_I247a$FIPS == 4013] <- as.Date("2017-02-01") #maricopa
+df_I247a$always_treated[df_I247a$FIPS == 4013] <- 1 #marion
+df_I247a$never_treated[df_I247a$FIPS == 4013] <- 0 #marion
+
+df_I247a$month_247a_county[df_I247a$FIPS == 6037] <- as.Date("2017-01-01") #la
+df_I247a$always_treated[df_I247a$FIPS == 6037] <- 1 #la
+df_I247a$never_treated[df_I247a$FIPS == 6037] <- 0 #la
+
+# fixing dummy variables
+# if month_247 is < 2014, then always treated is yes
+df_I247a$always_treated[df_I247a$month_247a_county < as.Date("2014-01-01")] <- 1
+# if always treated, year = 1999
+df_I247a$month_247a_county[df_I247a$always_treated == 1] <- as.Date("1999-01-01") #la
+
+#checking this worked 
+table(df_I247a$month_247a_county, df_I247a$always_treated)
+table(df_I247a$month_247a_county, df_I247a$never_treated)
 
 # pep -----
 #delete any row where the state is missing
