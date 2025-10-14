@@ -192,6 +192,9 @@ df_I247a$month_247a_county[df_I247a$FIPS == 6037] <- as.Date("2017-01-01") #la
 df_I247a$always_treated[df_I247a$FIPS == 6037] <- 1 #la
 df_I247a$never_treated[df_I247a$FIPS == 6037] <- 0 #la
 
+#padding out fips
+df_I247a$FIPS  <- str_pad(df_I247a$FIPS, width = 5, side = "left", pad = "0")
+
 # fixing dummy variables
 # if month_247 is < 2014, then always treated is yes
 df_I247a$always_treated[df_I247a$month_247a_county < as.Date("2014-01-01")] <- 1
@@ -205,41 +208,69 @@ table(df_I247a$month_247a_county, df_I247a$never_treated)
 # pep -----
 #delete any row where the state is missing
 pep <- pep %>%
-  filter(!(nchar(State) == 0 | is.na(State)) & !(nchar(County) == 0 | is.na(County))) %>%
-  mutate(pep_id = row_number())
-
-#deleting duplicate rows
-pep <- pep %>%
+  filter(!(nchar(State) == 0 | is.na(State))) %>%
+  mutate(pep_id = row_number()) %>%
+  #deleting duplicate rows
   distinct()
 
-# 1. Function to find the closest matching county in df for each county in detainers
-find_closest_county <- function(county_name, county_list) {
-  distances <- stringdist::stringdist(county_name, county_list, method = "jw")  # Jaro-Winkler distance
-  closest_match <- county_list[which.min(distances)]  # Find the county with the smallest distance
-  return(closest_match)
-}
+pep$month_no_detainers <- as.Date(pep$month_no_detainers, format = "%d/%m/%Y")
 
-# 2. Apply fuzzy matching to the 'County' column in detainers dataset
+# delete any full state variables or the weird b6 counties
+pep <- pep[ 
+  !grepl("7|state of|State of|All counties", pep$County, ignore.case = TRUE), 
+]
+
+#* state level variable ----
+# the entire states of AL, CA, VM, CT, MA, ME, NH, RH, VA, VM accepted ICE 
+# cleaning county and state names with the function we made above
+pep <- clean_county_state(pep)
+
+# Apply fuzzy matching to the 'County' column in detainers dataset
 pep$matched_county <- sapply(pep$County, function(x) find_closest_county(x, df$County))
 
-# 3. Merge on both 'State' and the 'matched_county' column
+# Merge on both 'State' and the 'matched_county' column
 pep_df <- left_join(pep, df, by = c("State" = "State", "matched_county" = "County"))
 
 # If not already in Date format, convert the date column
 pep_df <- pep_df %>%
   mutate(month_no_detainers = as.Date(month_no_detainers))  # Adjust the column name if needed
 
-#dropping 0s
-pep_df <- pep_df[pep_df$FIPS != 0, ]
-pep_df <- pep_df[!is.na(pep_df$FIPS), ]
+pep_df <- pep_df[!(pep_df$pep_id %in% c(5, 2098, 173, 1870, 1513, 1514, 2097,2597,2599,1658, 1681,1682,2101)), ]
 
-# COME BACK TO FIX THESE
+# checking merge 
+test <- pep_df[is.na(pep_df$FIPS), ]
+
+# fixing legit counties
+# fairfield is legit
+pep_df$FIPS[pep_df$pep_id == 303|pep_df$pep_id == 304|pep_df$pep_id == 305|pep_df$pep_id == 306 ] <- 09001
+# new londan is legit
+pep_df$FIPS[pep_df$pep_id == 309|pep_df$pep_id == 310| pep_df$pep_id ==311] <- 09011
+# hartford is legit
+pep_df$FIPS[pep_df$pep_id == 307| pep_df$pep_id == 308] <- 09003
+# butte is legit
+pep_df$FIPS[pep_df$pep_id == 603] <- 16023
+# hamilton is legit
+pep_df$FIPS[pep_df$pep_id == 658] <- 17065
 
 #padding out the values with 0s
 pep_df$FIPS  <- str_pad(pep_df$FIPS, width = 5, side = "left", pad = "0")
 
 # merging pep_df and df_I247a -----
-foia_df <- merge(df_I247a, pep_df, by = "FIPS", all.x = T)
+foia_df <- merge(df_I247a, pep_df, by = c("FIPS", "State"), all = T)
+
+# writing flags of issues
+foia_df$flag <- ifelse((!is.na(foia_df$month_no_detainers) & foia_df$always_treated == 1), 1, 0)
+
+table(foia_df$flag)
+test <- subset(foia_df, flag ==1)
+# there is a single observation where the treatment turned off in 2015 that I would need to deal with 
+# FIPS = 56037
+
+foia_df$flag2 <- ifelse((foia_df$month_no_detainers > 2014 & foia_df$never_treated == 1), 1, 0)
+
+table(foia_df$flag2)
+test <- subset(foia_df, flag ==1)
+
 
 # there are some duplicates because there are some counties with multiple jails
 # isolate these duplicates
