@@ -152,6 +152,8 @@ df_I247a$month_247a_county[df_I247a$always_treated == 1] <- as.Date("1999-01-01"
 #padding out fips
 df_I247a$FIPS  <- str_pad(df_I247a$FIPS, width = 5, side = "left", pad = "0")
 
+# formating the date correctly 
+df_I247a$month_247a_county <- as.Date(df_I247a$month_247a_county, format = "%d/%m/%Y")
 
 # pep 2015 -----
 #delete any row where the state is missing
@@ -161,6 +163,7 @@ pep <- pep %>%
   #deleting duplicate rows
   distinct()
 
+# format date 
 pep$month_no_detainers <- as.Date(pep$month_no_detainers, format = "%d/%m/%Y")
 
 # delete any full state variables or the weird b6 counties
@@ -168,8 +171,6 @@ pep <- pep[
   !grepl("7|state of|State of|All counties", pep$County, ignore.case = TRUE), 
 ]
 
-#* state level variable ----
-# the entire states of AL, CA, VM, CT, MA, ME, NH, RH, VA, VM accepted ICE 
 # cleaning county and state names with the function we made above
 pep <- clean_county_state(pep)
 
@@ -203,18 +204,38 @@ pep_df$FIPS[pep_df$pep_id == 658] <- 17065
 #padding out the values with 0s
 pep_df$FIPS  <- str_pad(pep_df$FIPS, width = 5, side = "left", pad = "0")
 
-# merging pep_df and df_I247a -----
-foia_df <- merge(df_I247a, pep_df, by = c("FIPS", "State"), all = T)
-
-
-#* dealing with duplicates by county
-foia_df <- foia_df %>%
+# dealing with duplicate county observations
+pep_df <- pep_df %>%
   group_by(FIPS) %>%
   mutate(dif_detainers = n_distinct(month_no_detainers) > 1) %>%
   ungroup()
 
-# there are 39 duplicate counties in my data that I will need to check by hand
-fix <- subset(foia_df, dif_detainers == 1)
+table(pep_df$dif_detainers)
+
+pep_df <- pep_df %>%
+  group_by(FIPS) %>%
+  mutate(
+    # Compute minimum date (even if NA — don't skip)
+    county_month_no_detainers = suppressWarnings(max(month_no_detainers, na.rm = TRUE))) %>%  # handle all NA gracefully
+  ungroup() 
+
+# merging pep_df and df_I247a -----
+foia_df <- merge(df_I247a, pep_df, by = c("FIPS", "State"), all = T)
+
+#* dealing with duplicates by county
+foia_df <- foia_df %>%
+  group_by(FIPS) %>%
+  mutate(dif_detainers = n_distinct(county_month_no_detainers) > 1) %>%
+  ungroup()
+
+# there are no issue observations
+
+# RULE: GO with the observation that has the most aggressive ICE policy (then bias will be down)
+# eg: this would be the county where month_no_detainer is the most recent date or never happened
+
+
+
+
 
 # fixing necessary counties - do this better later???
 foia_df <- foia_df[!(foia_df$pep_id == 1747 & foia_df$I247a_id == 10), ]
