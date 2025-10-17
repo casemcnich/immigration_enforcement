@@ -17,7 +17,8 @@ library('dplyr')
 library('knitr')
 library('zoo')
 library('stargazer')
-library(stringr)
+library('stringr')
+library('fixest')
 
 # wd ----
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
@@ -309,31 +310,21 @@ foia_df <- foia_df %>%
   ungroup()
 
 # subset to include just a few variables to make it easier going forward
-foia_df = subset(foia_df, select = c())
+foia_df = subset(foia_df, select = c("FIPS", "State", "County.x", "county_state", "Accept.I.247A", "month_247a_county", "always_treated", 'never_treated', "I247a_id",
+                                     "pep_id", "pep_month"))
+
+######## pairing with the wage and employment data #############
+load("../data/nhgis_qcew_trac_employ.Rdata")
+load("../data/nhgis_qcew_trac_wages.Rdata")
+
+full_df_emloy <- merge(foia_df, trac_employment, by.x = "FIPS", by.y = "area_fips", all.y = T)
+full_df_wages <- merge(foia_df, trac_wages, by.x = "FIPS", by.y = "area_fips", all.y = T)
 
 
 
 
-######## pairing with the map and nhgis merging variables #############
-#merging with the geo_ids from the tigerline maps
-load(file ="trac/match_vars.Rdata")
 
-df_I247a <- merge(
-  match_vars,
-  df_I247a,
-  by.x = c("GEOID", "abbrev"),
-  by.y = c("FORMATTED.FIPS", "State"),
-  all.x = TRUE
-)
 
-#subsetting so counties are distinct
-df_I247a <- df_I247a %>%
-  distinct(GEOID, .keep_all = TRUE)
-
-save(df_I247a, file = "df_I247a.Rdata")
-
-############ merging with nhgis data ######################
-load("nhgis.Rdata")
 
 ########### only keep relevant rows #######################
 nhgis <-subset(nhgis, select = c("GISJOIN", "YEAR" ,"AAA5E001", "AAB5E008"))
