@@ -258,35 +258,60 @@ pep_df$FIPS  <- str_pad(pep_df$FIPS, width = 5, side = "left", pad = "0")
 # merging pep_df and df_I247a -----
 foia_df <- merge(df_I247a, pep_df, by = c("FIPS", "State"), all = T)
 
-# writing flags of issues
-foia_df$flag <- ifelse((!is.na(foia_df$month_no_detainers) & foia_df$always_treated == 1), 1, 0)
 
+#* dealing with duplicates by county
+foia_df <- foia_df %>%
+  group_by(FIPS) %>%
+  mutate(dif_detainers = n_distinct(month_no_detainers) > 1) %>%
+  ungroup()
+
+# there are 39 duplicate counties in my data that I will need to check by hand
+fix <- subset(foia_df, dif_detainers == 1)
+
+# fixing necessary counties - do this better later???
+foia_df <- foia_df[!(foia_df$pep_id == 1747 & foia_df$I247a_id == 10), ]
+foia_df <- foia_df[!(foia_df$pep_id == 309 & foia_df$pep_id == 310), ] # this one will be dropped anyways
+foia_df <- foia_df[!(foia_df$I247a_id == 428 & foia_df$pep_id == 1098), ] # this one will be dropped anyways
+foia_df <- foia_df[!(foia_df$pep_id == 1113), ] # this one will be dropped anyways
+foia_df <- foia_df[!(foia_df$pep_id == 1821 | foia_df$pep_id == 1822 |foia_df$pep_id == 1823| foia_df$pep_id == 1824), ] # this one will be dropped anyways
+
+#* writing flags of issues ----
+foia_df$flag <- ifelse((!is.na(foia_df$month_no_detainers) & foia_df$always_treated == 1), 1, 0)
 table(foia_df$flag)
 test <- subset(foia_df, flag ==1)
 # there is a single observation where the treatment turned off in 2015 that I would need to deal with 
 # FIPS = 56037
-
-foia_df$flag2 <- ifelse((foia_df$month_no_detainers > 2014 & foia_df$never_treated == 1), 1, 0)
-
+foia_df$flag2 <- ifelse((foia_df$month_no_detainers > "2014-01-01" & foia_df$never_treated == 1), 1, 0)
 table(foia_df$flag2)
-test <- subset(foia_df, flag ==1)
+test <- subset(foia_df, flag2 ==1)
 
+table(foia_df$Current.Detainer.Notification.Acceptance.Status)
 
-# there are some duplicates because there are some counties with multiple jails
-# isolate these duplicates
-df_no_duplicates <- df[!(duplicated(df_I247a$FIPS) | duplicated(df_I247a$FIPS, fromLast = TRUE)), ]
+# making a variable for whether or not they currently accept detainers 
+foia_df$detainers_2015 <- ifelse(
+  foia_df$Current.Detainer.Notification.Acceptance.Status == "4: Willing to accept both (I-247N) Notifications and (I-247D) Detainers" |
+    foia_df$Current.Detainer.Notification.Acceptance.Status == "5: Willing to accept (I-247D) Detainers but not (I-247N) Notifications",
+  1,
+  0
+)
 
-df_duplicates <- df_I247a[duplicated(df_I247a$FIPS) | duplicated(df_I247a$FIPS, fromLast = TRUE), ]
+# 13 problematic counties - NEED TO CHECK THESE LATER
+table(foia_df$detainers_2015, foia_df$never_treated)
+fix <- subset(foia_df, detainers_2015 == 1 & never_treated ==1 | flag ==1 | flag2 ==1)
+# as we established before, there is a group of folks who switched in 2014, therefore our cutoff should be 2015 likely? or these groups dropped
+table(foia_df$detainers_2015, foia_df$always_treated)
 
-df_duplicates <- df_duplicates %>%
+# keep first observation 
+foia_df <- foia_df %>%
+  arrange(FIPS) %>%  # optional sorting
   group_by(FIPS) %>%
-  mutate(
-    different_dates = n_distinct(month_247a) > 1,  # TRUE if more than one unique date
-    flag = if_else(different_dates, TRUE, FALSE)
-  ) %>%
+  slice(1) %>%
   ungroup()
 
-table(df_flagged$flag)
+# subset to include just a few variables to make it easier going forward
+foia_df = subset(foia_df, select = c())
+
+
 
 
 ######## pairing with the map and nhgis merging variables #############
