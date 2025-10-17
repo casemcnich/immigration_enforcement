@@ -28,7 +28,7 @@ I247a <- read.csv("../data/foia/detainers_10_10_25.csv")
 pep <- read.csv("../data/foia/PEP_2015.csv")
 df <- read.csv("../data/foia/map_2.csv")
 
-# cleaning detainers ----
+# cleaning detainers 2017 data ----
 
 # delete any row where the state is missing
 I247a <- I247a %>%
@@ -81,24 +81,22 @@ I247a <- clean_county_state (I247a)
 # cleaning county names
 df <- clean_county_state(df)
 
-# 1 Function to find the closest matching county in df for each county in detainers
+# Function to find the closest matching county in df for each county in detainers
 find_closest_county <- function(county_name, county_list) {
   distances <- stringdist::stringdist(county_name, county_list, method = "jw")  # Jaro-Winkler distance
   closest_match <- county_list[which.min(distances)]  # Find the county with the smallest distance
   return(closest_match)
 }
 
-# 2 Apply fuzzy matching to the 'County' column in detainers dataset
+# Apply fuzzy matching to the 'County' column in detainers dataset
 I247a$matched_county <- sapply(I247a$county_state, function(x) find_closest_county(x, df$county_state))
 
 # fixing two counties that had typos and not automatically match 
-#crowley 
-I247a$matched_county[I247a$`I247a_id` == 1405] <- "Tarrant, TX" 
+I247a$matched_county[I247a$`I247a_id` == 1405] <- "Tarrant, TX" # crowley 
 
-# decataur
-I247a$matched_county[I247a$`I247a_id` == 1413] <- "Wise, TX" 
+I247a$matched_county[I247a$`I247a_id` == 1413] <- "Wise, TX" # decataur
 
-# 3 Merge on both 'State' and the 'matched_county' column
+# Merge on both 'State' and the 'matched_county' column
 df_I247a <- left_join(I247a, df, by = c("State" = "State", "matched_county" = "county_state"))
 
 # Fix counties that are real but had no match
@@ -107,106 +105,55 @@ df_I247a$FIPS[df_I247a$`I247a_id` == 669] <- 29009
 
 #* fixing missing counties -----
 # Starke, IN
-df_I247a$FIPS[df_I247a$`I247a_id` == 1228] <- 18149
+df_I247a$FIPS[df_I247a$`I247a_id` == 1228] <- 18149 # Starke, IN
 
-# Moore county Tx
-df_I247a$FIPS[df_I247a$`I247a_id` == 1554] <- 48341
+df_I247a$FIPS[df_I247a$`I247a_id` == 1554] <- 48341 # Moore county Tx
+
 df_I247a$FIPS[df_I247a$`I247a_id` == 1423] <- 48341
 
-# morris county tx
-df_I247a$FIPS[df_I247a$`I247a_id` == 1555] <- 48343
+df_I247a$FIPS[df_I247a$`I247a_id` == 1555] <- 48343 # morris county tx
 
-# williams county oh
-df_I247a$FIPS[df_I247a$`I247a_id` == 1827] <- 39173
+df_I247a$FIPS[df_I247a$`I247a_id` == 1827] <- 39173 # williams county oh
 
-# drop beaver county 
-# drop beaver county TX - does not exist?
-df_I247a <- df_I247a[df_I247a$county_state != "Beaver, TX", ]
+df_I247a <- df_I247a[df_I247a$county_state != "Beaver, TX", ] # drop beaver county - does not exist?
 
-#* resolving duplicate county observations with different first i247a dates
-# there are multiple jails in a county - > if any of the jails participate in the detainer program then 
-# detainer county ==1
-# so in this case a few duplicates are okay and the rows are functionally the same if I select 
-# the first item
+#* resolving duplicate county observations with different first i247a dates ----
 
-# there are 4 cases of multiple join 
+# RULES: 1) Drop all juvenile or federal prisons (Above)
+# 2 - if there are multiple jails in a county - > 
+#if any of the jails participate in the detainer program then that counts as treated
 
 # drop empty county 
 df_I247a <- df_I247a[df_I247a$I247a_id != 3485, ]
 
-# dealing with different I247 by county
 df_I247a <- df_I247a %>%
   group_by(FIPS) %>%
-  mutate(flag = n_distinct(month_247a) > 1) %>%
-  ungroup()
-
-table(df_I247a$flag)
-
-# there are 48 issues in the data representing 10 conflicting counties (most large)
-fix <- subset(df_I247a, flag == 1)
-
-# if there are multiple jails in a county with different policies, go off the most 
-# pro ice policy since this would impact people the most
-# OR go off of the contents of the map file
-
-# making new variables "month_247a_county" which is at the county level 
-df_I247a$month_247a_county <- df_I247a$month_247a
-
-# adjusting first treatment date for certain counties 
-df_I247a$month_247a_county[df_I247a$FIPS == 53077] <- as.Date("2014-01-01") #Yakima
-df_I247a$always_treated[df_I247a$FIPS == 53077] <- 1 #Yakima
-df_I247a$never_treated[df_I247a$FIPS == 53077] <- 0 #Yakima
-
-df_I247a$month_247a_county[df_I247a$FIPS == 53061] <- NA #Snohomish
-df_I247a$always_treated[df_I247a$FIPS == 53061] <- 0 #Snohomish
-df_I247a$never_treated[df_I247a$FIPS == 53061] <- 1 #Snohomish
-
-df_I247a$month_247a_county[df_I247a$FIPS == 6065] <- NA #Riverside
-df_I247a$always_treated[df_I247a$FIPS == 6065] <- 0 #Riverside
-df_I247a$never_treated[df_I247a$FIPS == 6065] <- 1 #Riverside
-
-df_I247a$month_247a_county[df_I247a$FIPS == 53053] <- as.Date("1999-01-01") #Pierce
-df_I247a$always_treated[df_I247a$FIPS == 53053] <- 1 #Pierce
-df_I247a$never_treated[df_I247a$FIPS == 53053] <- 0 #Pierce
-
-df_I247a$month_247a_county[df_I247a$FIPS == 35035] <- as.Date("1999-01-01") #Otero
-df_I247a$always_treated[df_I247a$FIPS == 35035] <- 1 #Otero
-df_I247a$never_treated[df_I247a$FIPS == 35035] <- 0 #Otero
-
-df_I247a$month_247a_county[df_I247a$FIPS == 6059] <- as.Date("1999-01-01") #orange
-df_I247a$always_treated[df_I247a$FIPS == 6059] <- 1 #orange
-df_I247a$never_treated[df_I247a$FIPS == 6059] <- 0 #orange
-
-df_I247a$month_247a_county[df_I247a$FIPS == 25017] <- as.Date("2017-02-01") #middlsex
-df_I247a$always_treated[df_I247a$FIPS == 25017] <- 0 #middlsex
-df_I247a$never_treated[df_I247a$FIPS == 25017] <- 0 #middlsex
-
-df_I247a$month_247a_county[df_I247a$FIPS == 12083] <- as.Date("1999-01-01") #marion
-df_I247a$always_treated[df_I247a$FIPS == 12083] <- 1 #marion
-df_I247a$never_treated[df_I247a$FIPS == 12083] <- 0 #marion
-
-df_I247a$month_247a_county[df_I247a$FIPS == 4013] <- as.Date("2017-02-01") #maricopa
-df_I247a$always_treated[df_I247a$FIPS == 4013] <- 1 #marion
-df_I247a$never_treated[df_I247a$FIPS == 4013] <- 0 #marion
-
-df_I247a$month_247a_county[df_I247a$FIPS == 6037] <- as.Date("2017-01-01") #la
-df_I247a$always_treated[df_I247a$FIPS == 6037] <- 1 #la
-df_I247a$never_treated[df_I247a$FIPS == 6037] <- 0 #la
-
-#padding out fips
-df_I247a$FIPS  <- str_pad(df_I247a$FIPS, width = 5, side = "left", pad = "0")
+  mutate(
+    # Flag always treated
+    always_treated = as.integer(any(always_treated == 1)),
+    
+    # Compute minimum date (even if NA — don't skip)
+    min_month = suppressWarnings(min(month_247a, na.rm = TRUE)),  # handle all NA gracefully
+    
+    # Assign month_247a_county depending on always_treated
+    month_247a_county = ifelse(always_treated == 0, min_month, NA),
+    
+    # Assign never_treated flag if no valid treatment date and not always treated
+    never_treated = ifelse(always_treated == 0 & is.na(min_month), 1, 0)
+  ) %>%
+  ungroup() 
 
 # fixing dummy variables
 # if month_247 is < 2014, then always treated is yes
 df_I247a$always_treated[df_I247a$month_247a_county < as.Date("2014-01-01")] <- 1
 # if always treated, year = 1999
-df_I247a$month_247a_county[df_I247a$always_treated == 1] <- as.Date("1999-01-01") #la
+df_I247a$month_247a_county[df_I247a$always_treated == 1] <- as.Date("1999-01-01") #assign arbitrary date to always treate
 
-#checking this worked 
-table(df_I247a$month_247a_county, df_I247a$always_treated)
-table(df_I247a$month_247a_county, df_I247a$never_treated)
+#padding out fips
+df_I247a$FIPS  <- str_pad(df_I247a$FIPS, width = 5, side = "left", pad = "0")
 
-# pep -----
+
+# pep 2015 -----
 #delete any row where the state is missing
 pep <- pep %>%
   filter(!(nchar(State) == 0 | is.na(State))) %>%
@@ -319,6 +266,13 @@ load("../data/nhgis_qcew_trac_wages.Rdata")
 
 full_df_emloy <- merge(foia_df, trac_employment, by.x = "FIPS", by.y = "area_fips", all.y = T)
 full_df_wages <- merge(foia_df, trac_wages, by.x = "FIPS", by.y = "area_fips", all.y = T)
+
+
+
+
+
+
+
 
 
 
