@@ -223,30 +223,30 @@ pep_df <- pep_df %>%
 foia_df <- merge(df_I247a, pep_df, by = c("FIPS", "State"), all = T)
 
 #* dealing with duplicates by county
+# RULE: GO with the observation that has the most aggressive ICE policy (then bias will be down)
+# eg: this would be the county where month_no_detainer is the most recent date or never happened
+
 foia_df <- foia_df %>%
   group_by(FIPS) %>%
   mutate(dif_detainers = n_distinct(county_month_no_detainers) > 1) %>%
   ungroup()
 
 # there are no issue observations
+table(foia_df$dif_detainers)
 
-# RULE: GO with the observation that has the most aggressive ICE policy (then bias will be down)
-# eg: this would be the county where month_no_detainer is the most recent date or never happened
-
-
-
-
-
-# fixing necessary counties - do this better later???
-foia_df <- foia_df[!(foia_df$pep_id == 1747 & foia_df$I247a_id == 10), ]
-foia_df <- foia_df[!(foia_df$pep_id == 309 & foia_df$pep_id == 310), ] # this one will be dropped anyways
-foia_df <- foia_df[!(foia_df$I247a_id == 428 & foia_df$pep_id == 1098), ] # this one will be dropped anyways
-foia_df <- foia_df[!(foia_df$pep_id == 1113), ] # this one will be dropped anyways
-foia_df <- foia_df[!(foia_df$pep_id == 1821 | foia_df$pep_id == 1822 |foia_df$pep_id == 1823| foia_df$pep_id == 1824), ] # this one will be dropped anyways
+# making sure the always_treated flag works
+foia_df$month_247a_county[foia_df$always_treated == 1] <- as.Date("1999-01-01") #assign arbitrary date to always treate
 
 #* writing flags of issues ----
-foia_df$flag <- ifelse((!is.na(foia_df$month_no_detainers) & foia_df$always_treated == 1), 1, 0)
+foia_df$flag <- ifelse(((!is.na(foia_df$month_no_detainers)| foia_df$month_no_detainers >= "2014-01-01") & foia_df$always_treated == 1), 1, 0)
 table(foia_df$flag)
+
+table(foia_df$month_no_detainers)
+
+# dropping anything thats "always treated" but isn't actually always treated
+foia_df <- foia_df %>%
+  filter(!(always_treated == 1 & !is.na(month_no_detainers) & month_no_detainers > 2014))
+
 test <- subset(foia_df, flag ==1)
 # there is a single observation where the treatment turned off in 2015 that I would need to deal with 
 # FIPS = 56037
@@ -264,7 +264,7 @@ foia_df$detainers_2015 <- ifelse(
   0
 )
 
-# 13 problematic counties - NEED TO CHECK THESE LATER
+# 1 problematic counties - NEED TO CHECK THESE LATER
 table(foia_df$detainers_2015, foia_df$never_treated)
 fix <- subset(foia_df, detainers_2015 == 1 & never_treated ==1 | flag ==1 | flag2 ==1)
 # as we established before, there is a group of folks who switched in 2014, therefore our cutoff should be 2015 likely? or these groups dropped
