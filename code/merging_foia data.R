@@ -19,6 +19,7 @@ library('zoo')
 library('stargazer')
 library('stringr')
 library('fixest')
+library('did')
 
 # wd ----
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
@@ -54,7 +55,7 @@ I247a <- subset(I247a, Juvenile.Facility == "NO")
 
 # If not already in Date format, convert the date column
 # Convert the date column from day/month/year format to Date class
-I247a$month_247a <- as.Date(I247a$month_247a, format = "%d/%m/%Y")
+I247a$month_247a <- as.Date(I247a$month_247a, format = "%m/%d/%Y")
 
 # function to clean county names
 clean_county_state <- function(df) {
@@ -126,22 +127,25 @@ df_I247a <- df_I247a[df_I247a$county_state != "Beaver, TX", ] # drop beaver coun
 # drop empty county 
 df_I247a <- df_I247a[df_I247a$I247a_id != 3485, ]
 
+class(df_I247a$month_247a)
+
 df_I247a <- df_I247a %>%
   group_by(FIPS) %>%
   mutate(
-    # Flag always treated
-    always_treated = as.integer(any(always_treated == 1)),
+    # County-level treatment flag
+    always_treated = as.integer(any(always_treated == 1, na.rm = TRUE)),
     
-    # Compute minimum date (even if NA — don't skip)
-    min_month = suppressWarnings(min(month_247a, na.rm = TRUE)),  # handle all NA gracefully
+    # Safely compute earliest treatment month (handle all-NA case)
+    min_month = if (all(is.na(month_247a))) as.Date(NA) else min(month_247a, na.rm = TRUE),
     
-    # Assign month_247a_county depending on always_treated
-    month_247a_county = ifelse(always_treated == 0, min_month, NA),
+    #  Assign county-level treatment month (numeric)
+    month_247a_county = if_else(always_treated == 0, as.Date(min_month), as.Date(NA)),
     
-    # Assign never_treated flag if no valid treatment date and not always treated
-    never_treated = ifelse(always_treated == 0 & is.na(min_month), 1, 0)
+    # Flag counties never treated
+    never_treated = ifelse(always_treated == 0 & is.na(min_month), 1L, 0L)
+  
   ) %>%
-  ungroup() 
+  ungroup()
 
 # fixing dummy variables
 # if month_247 is < 2014, then always treated is yes
@@ -285,102 +289,58 @@ foia_df = subset(foia_df, select = c("FIPS", "State", "County.x", "county_state"
 load("../data/nhgis_qcew_trac_employ.Rdata")
 load("../data/nhgis_qcew_trac_wages.Rdata")
 
-full_df_emloy <- merge(foia_df, trac_employment, by.x = "FIPS", by.y = "area_fips", all.y = T)
+# merging - this expands to a panel so this makes sense it gets much larger
+full_df_employ <- merge(foia_df, trac_employment, by.x = "FIPS", by.y = "area_fips", all.y = T)
 full_df_wages <- merge(foia_df, trac_wages, by.x = "FIPS", by.y = "area_fips", all.y = T)
 
+# calculate share foreign born 
+full_df_wages$share_foreign_born <- full_df_wages$aab5e008/full_df_wages$aaa5e001
+full_df_employ$share_foreign_born <- full_df_employ$aab5e008/full_df_employ$aaa5e001
 
+# Event study -----
+#* cleaning 
 
-
-
-
-
-
-
-
-
-
-
-
-########### only keep relevant rows #######################
-nhgis <-subset(nhgis, select = c("GISJOIN", "YEAR" ,"AAA5E001", "AAB5E008"))
-#merging - each pep_df will merge to multiple Nhgis files
-nhgis_I247a <- merge(nhgis, df_I247a, by.x = "GISJOIN", by.y = "GISJOIN", all.x = T)
-
-#filtering for ones that have matches
-nhgis_I247a <- nhgis_I247a %>% filter(!is.na(matched_county))
-
-#expanding out to all months and years
-nhgis_I247a <- nhgis_I247a %>%
-  # Create a sequence of months for each year
-  tidyr::expand(YEAR, month = 1:12) %>%
-  # Join with original data frame to repeat the value for each month
-  left_join(nhgis_I247a, by = "YEAR")
-
-#making a running year_mon column 
-# Assuming nhgis_I247a already has 'YEAR', 'month', and 'I247_date' columns
-nhgis_I247a <- nhgis_I247a %>%
-  # Create a 'yearmon' column combining YEAR and month
-  mutate(yearmon = as.yearmon(paste(YEAR, month, sep = "-"))) %>%
   # Calculate the difference in months between 'yearmon' and 'I247_date' as an integer
+  full_df_employ <- full_df_employ %>%
   mutate(
-    months_since_I247 = as.integer(
-      (YEAR - as.numeric(format(I247_date, "%Y"))) * 12 + (month - as.numeric(format(I247_date, "%m")))
+    # Create a date from the YEAR and month columns (assume day = 1)
+    current_date = make_date(year, month, 1),
+    
+    # Calculate whole months difference (handles NAs safely)
+    months_since_I247 = if_else(
+      !is.na(month_247a_county),
+      interval(month_247a_county, current_date) %/% months(1),
+      NA_integer_
     )
   )
-#merging with trac column 
-load("trac/matched_employment.Rdata")
 
-nhgis_I247a <- merge(nhgis_I247a, matched_employment, by.x = c("GEOID", "YEAR", "month"), by.y = c("area_fips", "year", "month"), all.x = T)
-nhgis_I247a$share_foreign_born <- nhgis_I247a$AAB5E008/nhgis_I247a$AAA5E001
+#creating a treatment variable for ever treated and always treated
+full_df_employ <- full_df_employ %>% mutate(treat = ifelse(!is.na(c(month_247a_county)), 1, 0)) 
 
-#saving this file for mapping
-nhgis_I247a <- nhgis_I247a %>% mutate(treat = ifelse(!is.na(I247_date), 1, 0)) 
+#* arrests event study -----
 
-#subset everything before november of 2014
-event_subset <- subset(nhgis_I247a, month_I247a > "Jan 2013"|I247_flag == "FALSE")
-
-##### event study ########
-library(fixest)
-
-#creating a treatment variable 
-nhgis_I247a <- nhgis_I247a %>% mutate(treat = ifelse(!is.na(I247_date), 1, 0)) 
+event_subset <- subset(full_df_employ, month_247a_county > "2014-01-01")
 
 event_subset <- subset(event_subset, months_since_I247 < 20)
 event_subset <- subset(event_subset, months_since_I247 > -20)
 
-                  
+event_subset$z_score_cound <- (event_subset$count - mean(event_subset$count)) / sd(event_subset$count)
+event_subset$z_score_cons <- (event_subset$monthly_emplvl_const - mean(event_subset$monthly_emplvl_const)) / sd(event_subset$monthly_emplvl_const)
+
+event_subset$current_date_factor <- as.factor(event_subset$current_date)
+
 event <- feols(
-  count ~ i(months_since_I247, treat, ref = -1) + share_foreign_born  + factor(yearmon) + state | county,
-  data = event_subset,   cluster = ~county)
+   count~ i(months_since_I247, treat, ref = -1)+ factor(current_date_factor) + state | County.x,
+  data = event_subset,   cluster = ~ County.x)
 
 summary(event)
 
-class(yearmon)
+event_subset$current_date_factor <- as.factor(event_subset$current_date)
 
 iplot(event, main = "I247a signatures on arrests", xlab = "Months Since I247a signed", ylab = "Estimate and 95% conf int",   col = "#800020")
 
 # sun and abraham event study staggered treatment
 # add in slope
-
-##### merging in wage data ########
-load("trac/trac_wages.Rdata")
-nhgis_I247a <- merge(nhgis_I247a, trac_employment, by.x = c("GEOID", "YEAR", "month"), by.y = c("area_fips", "year", "month"), all.x = T)
-
-
-#balance table 
-balance <-nhgis_I247a %>%
-  group_by(I247_flag) %>%
-  summarise(
-    foreign_born_mean = mean(share_foreign_born),
-    mean_pop = mean(AAA5E001),
-    employ_all = mean(monthly_emplvl_all, na.rm = T),
-    employ_rest = mean(monthly_emplvl_rest/monthly_emplvl_all,  na.rm = T),
-    employ_const = mean(monthly_emplvl_const/monthly_emplvl_all, na.rm = T),
-    employ_other = mean(monthly_emplvl_other/monthly_emplvl_all, na.rm = T),
-    ICE_access = mean(ICE.Access.to.Jail, na.rm = T), # proportion of TRUE
-    hold = mean(Hold.For.ICE, na.rm = T) # proportion of TRUE
-  )
-
 
 nhgis_I247a <- nhgis_I247a %>% mutate(treat = ifelse(!is.na(I247_date), 1, 0)) 
 
@@ -390,7 +350,7 @@ event_subset <- subset(event_subset, months_since_I247 > -10)
 
 #making demeaned version, z score version, and inverse hyperbolic sine version
 event_subset = event_subset %>%
-  group_by(area_title.x) %>%
+  group_by(county_state) %>%
   #z score  version
   mutate(z_score_other = scale(monthly_emplvl_other)) %>%
   mutate(z_score_rest = scale(monthly_emplvl_rest)) %>%  
@@ -404,25 +364,87 @@ event_subset = event_subset %>%
            mutate (ihs_emp_rest = log(monthly_emplvl_rest + ((monthly_emplvl_rest^2 +1)^0.5))) %>%
            mutate( ihs_emp_const = log(monthly_emplvl_const + ((monthly_emplvl_const^2 +1)^0.5))) %>%
 
-         
 event <- feols(
-  ihs_emp_rest ~ i(months_since_I247, treat, ref = -1) + share_foreign_born  + factor(yearmon) + abbrev | GEOID,
-  data = event_subset,   cluster = ~GEOID)
+  ihs_emp_rest ~ i(months_since_I247, treat, ref = -1)  + factor(current_date_factor) + state | county_state,
+  data = event_subset,   cluster = ~county_state)
 
 summary(event)
 iplot(event)
 
 event <- feols(
-  ihs_emp_const ~ i(months_since_I247, treat, ref = -1) + share_foreign_born  + factor(yearmon) + abbrev | GEOID,
-  data = event_subset,   cluster = ~GEOID)
+  ihs_emp_const ~ i(months_since_I247, treat, ref = -1)  + factor(current_date_factor) + state | county_state,
+  data = event_subset,   cluster = ~county_state)
 
 summary(event)
 iplot(event)
 
 event <- feols(
-  ihs_emp_other ~ i(months_since_I247, treat, ref = -1) + share_foreign_born  + factor(yearmon) + abbrev | GEOID,
-  data = event_subset,   cluster = ~GEOID)
+  ihs_emp_other ~ i(months_since_I247, treat, ref = -1)  + factor(current_date_factor) + state | county_state,
+  data = event_subset,   cluster = ~county_state)
 
 summary(event)
 iplot(event)
 
+# Diff in diff ------
+# for diff in diff need a first treat variable (ei the first month treated) and a current month variable
+# employment
+full_df_employ$month_247a_county <- as.Date(full_df_employ$month_247a_county)
+full_df_employ$current_date <- as.Date(full_df_employ$current_date)
+
+full_df_employ$first_treat <- ifelse(full_df_employ$current_date == full_df_employ$month_247a_county, 1, 0)
+table(full_df_employ$first_treat)
+
+check <- subset(full_df_employ, select = c("county_state", "current_date", "month_247a_county"))
+t <- subset(full_df_employ, first_treat == 1)
+
+# converting dates and id to numeric 
+
+full_df_employ$current_date <- as.numeric(full_df_employ$current_date)
+full_df_employ$FIPS <- as.numeric(full_df_employ$FIPS)
+full_df_employ$month_247a_county <- as.numeric(full_df_employ$month_247a_county)
+full_df_employ$month_247a_county[is.na(full_df_employ$month_247a_county)] <- 0
+
+
+
+full_df_employ <- full_df_employ %>%
+  mutate(
+    first_treat = if_else(current_date == month_247a_county, 1L, 0L, missing = 0L)
+  )
+
+head(full_df_employ[, c("current_date", "month_247a_county")], 100)
+
+# dropping always treated
+full_df_employ <- subset(full_df_employ, always_treated != 1)
+full_df_employ$z_count <- scale(full_df_employ$count)
+
+# dropping harris tx 
+full_df_employ <- subset(full_df_employ, county_state != "Harris, TX")
+
+table(full_df_employ$first_treat)
+
+full_df_clean <- full_df_employ |> filter(!is.na(state.x))
+full_df_clean <- full_df_employ |> filter(!is.na(count))
+full_df_clean <- full_df_employ |> filter(!is.na(month_247a_county))
+full_df_clean <- full_df_employ |> filter(!is.na(FIPS))
+full_df_clean <- full_df_employ |> filter(!is.na(current_date))
+
+
+out <- att_gt(yname = "count",
+              gname = "month_247a_county",
+              idname = "FIPS",
+              tname = "current_date",
+              xformla = ~ state.x,
+              data = full_df_employ,
+              est_method = "reg", 
+              control_group = "nevertreated"
+)
+group_effects <- aggte(out, type = "group", na.rm = TRUE)
+summary(group_effects)
+
+es <- aggte(out, type = "dynamic", na.rm = TRUE)
+ggdid(es) +
+  ylim(-100, 100)  # only show event times from -6 to +6
+
+colnames(full_df_employ)
+
+table(full_df_employ$state.y, useNA = "always")
