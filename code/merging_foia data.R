@@ -386,30 +386,15 @@ summary(event)
 iplot(event)
 
 # Diff in diff ------
-# for diff in diff need a first treat variable (ei the first month treated) and a current month variable
 # employment
 full_df_employ$month_247a_county <- as.Date(full_df_employ$month_247a_county)
 full_df_employ$current_date <- as.Date(full_df_employ$current_date)
 
-full_df_employ$first_treat <- ifelse(full_df_employ$current_date == full_df_employ$month_247a_county, 1, 0)
-table(full_df_employ$first_treat)
-
-check <- subset(full_df_employ, select = c("county_state", "current_date", "month_247a_county"))
-t <- subset(full_df_employ, first_treat == 1)
-
 # converting dates and id to numeric 
-
 full_df_employ$current_date <- as.numeric(full_df_employ$current_date)
 full_df_employ$FIPS <- as.numeric(full_df_employ$FIPS)
 full_df_employ$month_247a_county <- as.numeric(full_df_employ$month_247a_county)
 full_df_employ$month_247a_county[is.na(full_df_employ$month_247a_county)] <- 0
-
-
-
-full_df_employ <- full_df_employ %>%
-  mutate(
-    first_treat = if_else(current_date == month_247a_county, 1L, 0L, missing = 0L)
-  )
 
 head(full_df_employ[, c("current_date", "month_247a_county")], 100)
 
@@ -420,8 +405,7 @@ full_df_employ$z_count <- scale(full_df_employ$count)
 # dropping harris tx 
 full_df_employ <- subset(full_df_employ, county_state != "Harris, TX")
 
-table(full_df_employ$first_treat)
-
+# dropping any missing values
 full_df_clean <- full_df_employ |> filter(!is.na(state.x))
 full_df_clean <- full_df_employ |> filter(!is.na(count))
 full_df_clean <- full_df_employ |> filter(!is.na(month_247a_county))
@@ -443,8 +427,106 @@ summary(group_effects)
 
 es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
-  ylim(-100, 100)  # only show event times from -6 to +6
-
-colnames(full_df_employ)
+  ylim(-1000, 1000)  # only show event times from -6 to +6
 
 table(full_df_employ$state.y, useNA = "always")
+
+# Employment -----
+# Calculate Z scores 
+full_df_employ$z_monthly_emplvl_const <- as.numeric(scale(full_df_employ$monthly_emplvl_const))
+full_df_employ$z_monthly_emplvl_rest <- as.numeric(scale(full_df_employ$monthly_emplvl_rest))
+full_df_employ$z_monthly_emplvl_other <- as.numeric(scale(full_df_employ$monthly_emplvl_other))
+
+out <- att_gt(yname = "z_monthly_emplvl_const",
+              gname = "month_247a_county",
+              idname = "FIPS",
+              tname = "current_date",
+              xformla = ~ state.x,
+              data = full_df_employ,
+              est_method = "reg", 
+              control_group = "nevertreated"
+)
+group_effects <- aggte(out, type = "group", na.rm = TRUE)
+summary(group_effects)
+
+es <- aggte(out, type = "dynamic", na.rm = TRUE)
+ggdid(es) +
+  ylim(-100, 100) 
+
+out <- att_gt(yname = "z_monthly_emplvl_const",
+              gname = "month_247a_county",
+              idname = "FIPS",
+              tname = "current_date",
+              xformla = ~ state.x,
+              data = full_df_employ,
+              est_method = "reg", 
+              control_group = "nevertreated"
+)
+group_effects <- aggte(out, type = "group", na.rm = TRUE)
+summary(group_effects)
+
+es <- aggte(out, type = "dynamic", na.rm = TRUE)
+ggdid(es) +
+  ylim(-100, 100)  
+
+out <- att_gt(yname = "z_monthly_emplvl_rest",
+              gname = "month_247a_county",
+              idname = "FIPS",
+              tname = "current_date",
+              xformla = ~ state.x,
+              data = full_df_employ,
+              est_method = "reg", 
+              control_group = "nevertreated"
+)
+group_effects <- aggte(out, type = "group", na.rm = TRUE)
+summary(group_effects)
+
+es <- aggte(out, type = "dynamic", na.rm = TRUE)
+ggdid(es) +
+  ylim(-100, 100)  
+
+# Wages ----
+full_df_wages$month_247a_county <- as.Date(full_df_wages$month_247a_county)
+# make a quarter variable
+full_df_wages$year_qtr <- as.Date(full_df_wages$year_qtr)
+full_df_wages$quarter_247a_county <- paste0(format(full_df_wages$month_247a_county, "%Y"), " Q", ceiling(as.numeric(format(full_df_wages$month_247a_county, "%m")) / 3))
+
+# converting dates and id to numeric 
+full_df_wages$year_qtr <- as.numeric(full_df_wages$year_qtr)
+full_df_wages$FIPS <- as.numeric(full_df_wages$FIPS)
+full_df_wages$quarter_247a_county <- as.numeric(full_df_wages$quarter_247a_county)
+
+head(full_df_wages[, c("current_date", "month_247a_county")], 100)
+
+# dropping always treated
+full_df_wages <- subset(full_df_wages, always_treated != 1)
+full_df_wages$z_count <- scale(full_df_wages$count)
+
+# dropping harris tx 
+full_df_wages <- subset(full_df_employ, county_state != "Harris, TX")
+
+# dropping any missing values
+full_df_clean <- full_df_wages |> filter(!is.na(state.x))
+full_df_clean <- full_df_wages |> filter(!is.na(count))
+full_df_clean <- full_df_wages |> filter(!is.na(month_247a_county))
+full_df_clean <- full_df_wages |> filter(!is.na(FIPS))
+full_df_clean <- full_df_wages |> filter(!is.na(current_date))
+
+
+out <- att_gt(yname = "monthly_emplvl_const",
+              gname = "quarter_247a_county",
+              idname = "FIPS",
+              tname = "year_qtr",
+              xformla = ~ state.x,
+              data = full_df_clean,
+              est_method = "reg", 
+              control_group = "nevertreated"
+)
+group_effects <- aggte(out, type = "group", na.rm = TRUE)
+summary(group_effects)
+
+es <- aggte(out, type = "dynamic", na.rm = TRUE)
+ggdid(es) +
+  ylim(-100, 100)  
+
+
