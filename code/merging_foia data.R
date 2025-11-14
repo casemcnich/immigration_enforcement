@@ -4,8 +4,8 @@
 # last modified on 10.5.25
 
 # prerequisites ----
-
 #libraries
+library('lubridate')
 library('vtable')
 library('sf')
 library('tidyverse')
@@ -339,15 +339,6 @@ event_subset$current_date_factor <- as.factor(event_subset$current_date)
 
 iplot(event, main = "I247a signatures on arrests", xlab = "Months Since I247a signed", ylab = "Estimate and 95% conf int",   col = "#800020")
 
-# sun and abraham event study staggered treatment
-# add in slope
-
-nhgis_I247a <- nhgis_I247a %>% mutate(treat = ifelse(!is.na(I247_date), 1, 0)) 
-
-event_subset <- subset(nhgis_I247a, month_I247a > "Jan 2013"|I247_flag == "FALSE")
-event_subset <- subset(event_subset, months_since_I247 < 10)
-event_subset <- subset(event_subset, months_since_I247 > -10)
-
 #making demeaned version, z score version, and inverse hyperbolic sine version
 event_subset = event_subset %>%
   group_by(county_state) %>%
@@ -427,7 +418,7 @@ summary(group_effects)
 
 es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
-  ylim(-1000, 1000)  # only show event times from -6 to +6
+  ylim(-100, 100)  # only show event times from -6 to +6
 
 table(full_df_employ$state.y, useNA = "always")
 
@@ -483,45 +474,59 @@ summary(group_effects)
 
 es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
-  ylim(-100, 100)  
+  ylim(-10, 10)  
 
 # Wages ----
-full_df_wages$month_247a_county <- as.Date(full_df_wages$month_247a_county)
-# make a quarter variable
-full_df_wages$year_qtr <- as.Date(full_df_wages$year_qtr)
-full_df_wages$quarter_247a_county <- paste0(format(full_df_wages$month_247a_county, "%Y"), " Q", ceiling(as.numeric(format(full_df_wages$month_247a_county, "%m")) / 3))
+# to get around our coding issues we will convert the quarters to months since Q1 199
+# we will do the same thing for the current date and month_247a_county
 
-# converting dates and id to numeric 
-full_df_wages$year_qtr <- as.numeric(full_df_wages$year_qtr)
-full_df_wages$FIPS <- as.numeric(full_df_wages$FIPS)
-full_df_wages$quarter_247a_county <- as.numeric(full_df_wages$quarter_247a_county)
+# Convert to numeric first
+full_df_wages$year <- as.numeric(full_df_wages$year)
+full_df_wages$qtr <- as.numeric(full_df_wages$qtr)
 
-head(full_df_wages[, c("current_date", "month_247a_county")], 100)
+# Convert to year.quarter format
+full_df_wages$year_quarter <- full_df_wages$year + (full_df_wages$qtr) * 0.25
+
+# converting I247a date
+# pulling out year and quarter as numeric 
+full_df_wages$month_247a_county <- ymd(full_df_wages$month_247a_county)
+full_df_wages$year_quarter_I247a <- quarter(full_df_wages$month_247a_county, with_year = TRUE)
+
+# Convert to year.quarter format
 
 # dropping always treated
 full_df_wages <- subset(full_df_wages, always_treated != 1)
 full_df_wages$z_count <- scale(full_df_wages$count)
 
 # dropping harris tx 
-full_df_wages <- subset(full_df_employ, county_state != "Harris, TX")
+full_df_wages <- subset(full_df_wages, county_state != "Harris, TX")
 
 # dropping any missing values
-full_df_clean <- full_df_wages |> filter(!is.na(state.x))
-full_df_clean <- full_df_wages |> filter(!is.na(count))
-full_df_clean <- full_df_wages |> filter(!is.na(month_247a_county))
-full_df_clean <- full_df_wages |> filter(!is.na(FIPS))
-full_df_clean <- full_df_wages |> filter(!is.na(current_date))
+full_df_clean <- full_df_wages %>% filter(!is.na(county_state))
 
+full_df_clean$FIPS <- as.numeric(full_df_clean$FIPS)
+full_df_clean$year_quarter_I247a_num[is.na(full_df_clean$year_quarter_I247a_num)] <- 0
 
-out <- att_gt(yname = "monthly_emplvl_const",
-              gname = "quarter_247a_county",
+table(full_df_clean$State)
+# making tiny data
+class(full_df_clean$year_quarter)
+full_df_clean <- subset(full_df_clean, select = c("avg_wkly_wage_const", "year_quarter", "year_quarter_I247a", "State", "FIPS"))
+out <- att_gt(yname = "avg_wkly_wage_const",
+              gname = "year_quarter",
               idname = "FIPS",
-              tname = "year_qtr",
-              xformla = ~ state.x,
+              tname = "year_quarter_I247a",
+              xformla = ~ State,
               data = full_df_clean,
               est_method = "reg", 
-              control_group = "nevertreated"
+              control_group = "notyettreated", 
+
 )
+
+
+str(full_df_clean$year_quarter)
+
+
+full_df_clean$FIPS <- as.numeric(full_df_clean$FIPS)
 group_effects <- aggte(out, type = "group", na.rm = TRUE)
 summary(group_effects)
 
