@@ -340,7 +340,7 @@ event_subset$current_date_factor <- as.factor(event_subset$current_date)
 iplot(event, main = "I247a signatures on arrests", xlab = "Months Since I247a signed", ylab = "Estimate and 95% conf int",   col = "#800020")
 
 #making demeaned version, z score version, and inverse hyperbolic sine version
-event_subset = event_subset %>%
+event_subset <- event_subset %>%
   group_by(county_state) %>%
   #z score  version
   mutate(z_score_other = scale(monthly_emplvl_other)) %>%
@@ -353,7 +353,7 @@ event_subset = event_subset %>%
    #ihs version
    mutate(ihs_emp_other = log(monthly_emplvl_other + ((monthly_emplvl_other^2 +1)^0.5))) %>%
            mutate (ihs_emp_rest = log(monthly_emplvl_rest + ((monthly_emplvl_rest^2 +1)^0.5))) %>%
-           mutate( ihs_emp_const = log(monthly_emplvl_const + ((monthly_emplvl_const^2 +1)^0.5))) %>%
+           mutate( ihs_emp_const = log(monthly_emplvl_const + ((monthly_emplvl_const^2 +1)^0.5))) 
 
 event <- feols(
   ihs_emp_rest ~ i(months_since_I247, treat, ref = -1)  + factor(current_date_factor) + state | county_state,
@@ -377,7 +377,7 @@ summary(event)
 iplot(event)
 
 # Diff in diff ------
-# employment
+#* arrest -------
 full_df_employ$month_247a_county <- as.Date(full_df_employ$month_247a_county)
 full_df_employ$current_date <- as.Date(full_df_employ$current_date)
 
@@ -385,6 +385,7 @@ full_df_employ$current_date <- as.Date(full_df_employ$current_date)
 full_df_employ$current_date <- as.numeric(full_df_employ$current_date)
 full_df_employ$FIPS <- as.numeric(full_df_employ$FIPS)
 full_df_employ$month_247a_county <- as.numeric(full_df_employ$month_247a_county)
+# if never treated code month i247a as 0 
 full_df_employ$month_247a_county[is.na(full_df_employ$month_247a_county)] <- 0
 
 head(full_df_employ[, c("current_date", "month_247a_county")], 100)
@@ -422,7 +423,7 @@ ggdid(es) +
 
 table(full_df_employ$state.y, useNA = "always")
 
-# Employment -----
+#* employment -----
 # Calculate Z scores 
 full_df_employ$z_monthly_emplvl_const <- as.numeric(scale(full_df_employ$monthly_emplvl_const))
 full_df_employ$z_monthly_emplvl_rest <- as.numeric(scale(full_df_employ$monthly_emplvl_rest))
@@ -437,6 +438,7 @@ out <- att_gt(yname = "z_monthly_emplvl_const",
               est_method = "reg", 
               control_group = "nevertreated"
 )
+
 group_effects <- aggte(out, type = "group", na.rm = TRUE)
 summary(group_effects)
 
@@ -476,7 +478,7 @@ es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
   ylim(-10, 10)  
 
-# Wages ----
+#* wages ----
 # to get around our coding issues we will convert the quarters to months since Q1 199
 # we will do the same thing for the current date and month_247a_county
 
@@ -490,13 +492,16 @@ full_df_wages$year_quarter <- full_df_wages$year + (full_df_wages$qtr) * 0.25
 # converting I247a date
 # pulling out year and quarter as numeric 
 full_df_wages$month_247a_county <- ymd(full_df_wages$month_247a_county)
-full_df_wages$year_quarter_I247a <- quarter(full_df_wages$month_247a_county, with_year = TRUE)
+full_df_wages$year_quarter_I247a <- lubridate::quarter(full_df_wages$month_247a_county, with_year = TRUE)
 
 # Convert to year.quarter format
 
 # dropping always treated
 full_df_wages <- subset(full_df_wages, always_treated != 1)
 full_df_wages$z_count <- scale(full_df_wages$count)
+
+# if never treated code month i247a as 0 
+full_df_wages$year_quarter_I247a [is.na(full_df_wages$year_quarter_I247a )] <- 0
 
 # dropping harris tx 
 full_df_wages <- subset(full_df_wages, county_state != "Harris, TX")
@@ -505,33 +510,36 @@ full_df_wages <- subset(full_df_wages, county_state != "Harris, TX")
 full_df_clean <- full_df_wages %>% filter(!is.na(county_state))
 
 full_df_clean$FIPS <- as.numeric(full_df_clean$FIPS)
-full_df_clean$year_quarter_I247a_num[is.na(full_df_clean$year_quarter_I247a_num)] <- 0
 
 table(full_df_clean$State)
-# making tiny data
-class(full_df_clean$year_quarter)
-full_df_clean <- subset(full_df_clean, select = c("avg_wkly_wage_const", "year_quarter", "year_quarter_I247a", "State", "FIPS"))
-out <- att_gt(yname = "avg_wkly_wage_const",
-              gname = "year_quarter",
-              idname = "FIPS",
-              tname = "year_quarter_I247a",
-              xformla = ~ State,
-              data = full_df_clean,
-              est_method = "reg", 
-              control_group = "notyettreated", 
 
+full_df_clean$year_quarter_I247a <- full_df_wages$year_quarter_I247a * 10
+full_df_clean$year_quarter <- full_df_wages$year_quarter * 10
+
+full_df_clean$z_avg_wkly_wage_const <- as.numeric(scale(full_df_clean$avg_wkly_wage_const))
+
+# bootstrapped version
+out <- did::att_gt(
+  yname = "z_avg_wkly_wage_const",
+  gname = "year_quarter_I247a",
+  idname = "FIPS",
+  tname = "year_quarter",
+  xformla = ~1,
+  data = full_df_clean,
+  est_method = "reg",
+  control_group = "notyettreated",
+  bstrap = TRUE,
+  biters = 2000,        # <-- correct!
+  clustervars = "FIPS"
 )
 
-
-str(full_df_clean$year_quarter)
-
-
-full_df_clean$FIPS <- as.numeric(full_df_clean$FIPS)
 group_effects <- aggte(out, type = "group", na.rm = TRUE)
 summary(group_effects)
 
 es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
-  ylim(-100, 100)  
+  ylim(-1, 1)  
+
+# non bootstrapped version 
 
 
