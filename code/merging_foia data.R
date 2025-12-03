@@ -20,6 +20,7 @@ library('stargazer')
 library('stringr')
 library('fixest')
 library('did')
+library("blscrapeR")
 
 # wd ----
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
@@ -479,8 +480,48 @@ ggdid(es) +
   ylim(-10, 10)  
 
 #* wages ----
-# to get around our coding issues we will convert the quarters to months since Q1 199
-# we will do the same thing for the current date and month_247a_county
+
+# set 0s to NAs
+full_df_wages$avg_wkly_wage_rest[full_df_wages$avg_wkly_wage_rest == 0] <- NA
+full_df_wages$avg_wkly_wage_const[full_df_wages$avg_wkly_wage_const == 0] <- NA
+full_df_wages$avg_wkly_wage_other[full_df_wages$avg_wkly_wage_other == 0] <- NA
+
+#** CPI adjustment 
+
+# pull out the monthly CPI
+cpi <- bls_api("CUUR0000SA0",
+               startyear = 2014,
+               endyear = 2018,
+               annualavg = FALSE)   # monthly data, not annual averages
+
+# Extract 2014 CPI base (usually you want average or a specific month—here I take annual avg)
+cpi$cpi_base <- cpi %>%
+  filter(year == 2014) %>%
+  summarise(base = mean(value, na.rm = TRUE)) %>%
+  pull(base) 
+
+# convert to year quarter
+cpi$year_quarter_cpi <- paste0(cpi$periodName, " ", cpi$year)
+
+month_year_to_quarter <- function(x) {
+  d <- as.Date(paste("1", x), format = "%d %B %Y")   # for full month names
+  q <- ceiling(as.numeric(format(d, "%m")) / 3)
+  paste(format(d, "%Y"), paste0("Q", q))
+}
+
+cpi$year_quarter_cpi <- month_year_to_quarter(cpi$year_quarter_cpi)
+
+# keep just the beginning of the year quarter value 
+cpi <- subset(cpi, cpi$periodName %in% c("January", "April", "July", "Oct"))
+
+# merge with wage data
+full_df_wages <- merge(full_df_wages, cpi, by.x = "year_qtr", by.y = "year_quarter_cpi", relationship = "many-to-many")
+
+# adjusted wages
+full_df_wages <- full_df_wages %>%
+  mutate(rest_wage_real_2014 = avg_wkly_wage_rest * (cpi_base / value)) %>%
+  mutate(const_wage_real_2014 = avg_wkly_wage_const * (cpi_base / value)) %>%
+  mutate(other_wage_real_2014 = avg_wkly_wage_other * (cpi_base / value))   # 'value' is CPI in the BLS API data
 
 # Convert to numeric first
 full_df_wages$year <- as.numeric(full_df_wages$year)
@@ -517,10 +558,11 @@ full_df_clean$year_quarter_I247a <- full_df_wages$year_quarter_I247a * 10
 full_df_clean$year_quarter <- full_df_wages$year_quarter * 10
 
 full_df_clean$z_avg_wkly_wage_const <- as.numeric(scale(full_df_clean$avg_wkly_wage_const))
+full_df_clean$z_avg_wkly_wage_rest <- as.numeric(scale(full_df_clean$avg_wkly_wage_rest))
 
 # bootstrapped version
 out <- did::att_gt(
-  yname = "z_avg_wkly_wage_const",
+  yname = "z_avg_wkly_wage_rest",
   gname = "year_quarter_I247a",
   idname = "FIPS",
   tname = "year_quarter",
@@ -533,6 +575,9 @@ out <- did::att_gt(
   clustervars = "FIPS"
 )
 
+table(full_df_clean$year_quarter_I247a)  # or year_quarter_I247a if that’s your gname
+
+
 group_effects <- aggte(out, type = "group", na.rm = TRUE)
 summary(group_effects)
 
@@ -540,6 +585,24 @@ es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
   ylim(-1, 1)  
 
-# non bootstrapped version 
 
+# non bootstrapped version 
+out <- did::att_gt(
+  yname = "z_avg_wkly_wage_rest",
+  gname = "year_quarter_I247a",
+  idname = "FIPS",
+  tname = "year_quarter",
+  xformla = ~1,
+  data = full_df_clean,
+  est_method = "reg",
+  control_group = "notyettreated",
+  clustervars = "FIPS"
+)
+
+group_effects <- aggte(out, type = "group", na.rm = TRUE)
+summary(group_effects)
+
+es <- aggte(out, type = "dynamic", na.rm = TRUE)
+ggdid(es) +
+  ylim(-.5, .5)  
 
