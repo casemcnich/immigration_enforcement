@@ -20,7 +20,7 @@ library(sf)
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
 
 # loading TRAC data -----
-load("../data/county_arrests_all_2_18.Rdata")
+load("../data/county_arrests.Rdata")
 load("../data/county_arrests_nocap.Rdata")
 load("../data/county_arrests_cap.Rdata")
 

@@ -434,24 +434,7 @@ out <- att_gt(yname = "z_monthly_emplvl_const",
               gname = "month_247a_county",
               idname = "FIPS",
               tname = "current_date",
-              xformla = ~ state.x,
-              data = full_df_employ,
-              est_method = "reg", 
-              control_group = "nevertreated"
-)
-
-group_effects <- aggte(out, type = "group", na.rm = TRUE)
-summary(group_effects)
-
-es <- aggte(out, type = "dynamic", na.rm = TRUE)
-ggdid(es) +
-  ylim(-100, 100) 
-
-out <- att_gt(yname = "z_monthly_emplvl_const",
-              gname = "month_247a_county",
-              idname = "FIPS",
-              tname = "current_date",
-              xformla = ~ state.x,
+              xformla = ~1,
               data = full_df_employ,
               est_method = "reg", 
               control_group = "nevertreated"
@@ -461,7 +444,7 @@ summary(group_effects)
 
 es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
-  ylim(-100, 100)  
+  ylim(-10, 10)  
 
 out <- att_gt(yname = "z_monthly_emplvl_rest",
               gname = "month_247a_county",
@@ -480,11 +463,6 @@ ggdid(es) +
   ylim(-10, 10)  
 
 #* wages ----
-
-# set 0s to NAs
-full_df_wages$avg_wkly_wage_rest[full_df_wages$avg_wkly_wage_rest == 0] <- NA
-full_df_wages$avg_wkly_wage_const[full_df_wages$avg_wkly_wage_const == 0] <- NA
-full_df_wages$avg_wkly_wage_other[full_df_wages$avg_wkly_wage_other == 0] <- NA
 
 #** CPI adjustment 
 
@@ -524,7 +502,7 @@ full_df_wages <- full_df_wages %>%
   mutate(other_wage_real_2014 = avg_wkly_wage_other * (cpi_base / value))   # 'value' is CPI in the BLS API data
 
 # Convert to numeric first
-full_df_wages$year <- as.numeric(full_df_wages$year)
+full_df_wages$year <- as.numeric(full_df_wages$year.y)
 full_df_wages$qtr <- as.numeric(full_df_wages$qtr)
 
 # Convert to year.quarter format
@@ -557,8 +535,15 @@ table(full_df_clean$State)
 full_df_clean$year_quarter_I247a <- full_df_wages$year_quarter_I247a * 10
 full_df_clean$year_quarter <- full_df_wages$year_quarter * 10
 
-full_df_clean$z_avg_wkly_wage_const <- as.numeric(scale(full_df_clean$avg_wkly_wage_const))
-full_df_clean$z_avg_wkly_wage_rest <- as.numeric(scale(full_df_clean$avg_wkly_wage_rest))
+# calculate z scores 
+full_df_clean$z_avg_wkly_wage_const <- as.numeric(scale(full_df_clean$const_wage_real_2014))
+full_df_clean$z_avg_wkly_wage_rest <- as.numeric(scale(full_df_clean$rest_wage_real_2014))
+full_df_clean$z_avg_wkly_wage_oth <- as.numeric(scale(full_df_clean$other_wage_real_2014))
+
+# drop all counties with a 0 in the wage (drop the full county)
+full_df_clean_rest <- full_df_clean[ !full_df_clean$FIPS %in% full_df_clean$FIPS[full_df_clean$rest_wage_real_2014 == 0], ]
+full_df_clean_const <- full_df_clean[ !full_df_clean$FIPS %in% full_df_clean$FIPS[full_df_clean$const_wage_real_2014 == 0], ]
+full_df_clean_oth <- full_df_clean[ !full_df_clean$FIPS %in% full_df_clean$FIPS[full_df_clean$other_wage_real_2014 == 0], ]
 
 # bootstrapped version
 out <- did::att_gt(
@@ -567,7 +552,7 @@ out <- did::att_gt(
   idname = "FIPS",
   tname = "year_quarter",
   xformla = ~1,
-  data = full_df_clean,
+  data = full_df_clean_rest,
   est_method = "reg",
   control_group = "notyettreated",
   bstrap = TRUE,
@@ -586,23 +571,55 @@ ggdid(es) +
   ylim(-1, 1)  
 
 
-# non bootstrapped version 
+
+# bootstrapped version
 out <- did::att_gt(
-  yname = "z_avg_wkly_wage_rest",
+  yname = "z_avg_wkly_wage_const",
   gname = "year_quarter_I247a",
   idname = "FIPS",
   tname = "year_quarter",
   xformla = ~1,
-  data = full_df_clean,
+  data = full_df_clean_const,
   est_method = "reg",
   control_group = "notyettreated",
+  bstrap = TRUE,
+  biters = 2000,        # <-- correct!
   clustervars = "FIPS"
 )
+
+table(full_df_clean$year_quarter_I247a)  # or year_quarter_I247a if that’s your gname
+
 
 group_effects <- aggte(out, type = "group", na.rm = TRUE)
 summary(group_effects)
 
 es <- aggte(out, type = "dynamic", na.rm = TRUE)
 ggdid(es) +
-  ylim(-.5, .5)  
+  ylim(-1, 1)  
+
+
+# bootstrapped version
+out <- did::att_gt(
+  yname = "z_avg_wkly_wage_oth",
+  gname = "year_quarter_I247a",
+  idname = "FIPS",
+  tname = "year_quarter",
+  xformla = ~1,
+  data = full_df_clean_oth,
+  est_method = "reg",
+  control_group = "notyettreated",
+  bstrap = TRUE,
+  biters = 2000,        # <-- correct!
+  clustervars = "FIPS"
+)
+
+table(full_df_clean$year_quarter_I247a)  # or year_quarter_I247a if that’s your gname
+
+
+group_effects <- aggte(out, type = "group", na.rm = TRUE)
+summary(group_effects)
+
+es <- aggte(out, type = "dynamic", na.rm = TRUE)
+ggdid(es) +
+  ylim(-1, 1)  
 
