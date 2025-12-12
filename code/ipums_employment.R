@@ -36,7 +36,7 @@ mean(data$HOURWAGE_CPIU_2010)
 # drop people who are not in the labor force at all
 data <- subset(data, HOURWAGE_CPIU_2010 == 99999.99)
 
-# Foreign-born non-citizen Hispanics  --------------------------------
+#* Foreign-born non-citizen Hispanics  --------------------------------
 
 #foreign born 
 foreign_hisp <- subset(data, NATIVITY == 5 )
@@ -47,17 +47,17 @@ foreign_hisp <- subset(foreign_hisp, HISPAN >= 100 & HISPAN <= 900)
 # non citizen 
 foreign_hisp_noncitizen <- subset(foreign_hisp, CITIZEN == 5)
 
-# Foreign-born naturalized citizen Hispanics  --------------------------------
+#* Foreign-born naturalized citizen Hispanics  --------------------------------
 foreign_hisp_naturalized <- subset(foreign_hisp, CITIZEN == 4)
 
-# Native-born Hispanics --------------------------------
+#* Native-born Hispanics --------------------------------
 # hispanic 
 native_hisp <- subset(data, HISPAN >= 100 & HISPAN <= 900)
 
 # native 
 foreign_hisp <- subset(native_hisp, NATIVITY == 1 |NATIVITY == 2|NATIVITY == 3|NATIVITY == 4)
 
-# Native-born non-Hispanic whites --------------------------------
+#* Native-born non-Hispanic whites --------------------------------
 
 # native born 
 native_nonhisp_white <-  subset(data, NATIVITY == 1 |NATIVITY == 2|NATIVITY == 3|NATIVITY == 4)
@@ -69,6 +69,11 @@ native_nonhisp_white <- subset (native_nonhisp_white, HISPAN == 000)
 native_nonhisp_white <- subset (native_nonhisp_white, RACE == 100)
 
 
-
 # merge ipums data------
+
+
+
+
+# load trac data 
+
 
