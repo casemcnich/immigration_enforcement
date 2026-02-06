@@ -286,6 +286,9 @@ foia_df <- foia_df %>%
 foia_df = subset(foia_df, select = c("FIPS", "State", "County.x", "county_state", "Accept.I.247A", "month_247a_county", "always_treated", 'never_treated', "I247a_id",
                                      "pep_id", "pep_month"))
 
+# saving the data to merge with ipums
+save(foia_df, file ="../data/foia_df.Rdata" )
+
 ######## pairing with the wage and employment data #############
 load("../data/nhgis_qcew_trac_employ.Rdata")
 load("../data/nhgis_qcew_trac_wages.Rdata")

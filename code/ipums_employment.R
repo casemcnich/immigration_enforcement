@@ -38,11 +38,20 @@ data <- subset(data, HOURWAGE_CPIU_2010 == 99999.99)
 
 data <- subset(data, COUNTY!= 0)
 
+table(data$OCC)
+
 # merge ipums data----------------------------
 load("../data/foia_df.Rdata")
 
 # merge 
 data <- merge(foia_df, data, by.x = "FIPS", by.y = "COUNTY", all.y = T)
+
+# subset to just restaurants
+data <- subset(data, OCC >= 4000 & OCC <= 4150)
+
+# make a year_mon variable
+data$year_mon <- paste0(data$YEAR, "-", data$MONTH, "-", "01")
+data$year_mon <- as.Date(data$year_mon)
 
 #* Foreign-born non-citizen Hispanics  --------------------------------
 
@@ -78,12 +87,52 @@ native_nonhisp_white <- subset (native_nonhisp_white, RACE == 100)
 
 native_nonhisp_white <- subset(native_nonhisp_white,  NATIVITY == 1 |NATIVITY == 2|NATIVITY == 3|NATIVITY == 4)
 
+
+# summary statistics ------
+
+sumtable(data)
+sumtable(foreign_hisp)
+sumtable(native_hisp)
+sumtable(native_nonhisp_white)
+sumtable(foreign_hisp_naturalized)
+sumtable(foreign_hisp_noncitizen)
+
+# summary graphs -----
+
+#* all data -----
+data_time <- data %>%
+  mutate(year_mon = as.Date(year_mon)) %>% # Ensure the date column is in Date format
+  group_by(year_month = floor_date(year_mon, "month")) %>% # Group by month
+  summarise(mean_EARNWEEK = mean(EARNWEEK, na.rm = TRUE)) %>% # Calculate mean of psavert
+  ungroup() # Always a good practice to ungroup
+
+ggplot(data_time, aes(x = year_month, y = mean_EARNWEEK)) +
+  geom_line(color = "blue", linewidth = 1) +
+  labs(title = "Mean weekly wage",
+       x = "Date",
+       y = "Mean earnings") +
+  theme_minimal()
+
+#* foreign hispanic -----
+data_time <- foreign_hisp %>%
+  mutate(year_mon = as.Date(year_mon)) %>% # Ensure the date column is in Date format
+  group_by(year_month = floor_date(year_mon, "month")) %>% # Group by month
+  summarise(mean_EARNWEEK = mean(EARNWEEK, na.rm = TRUE)) %>% # Calculate mean of psavert
+  ungroup() # Always a good practice to ungroup
+
+ggplot(data_time, aes(x = year_month, y = mean_EARNWEEK)) +
+  geom_line(color = "blue", linewidth = 1) +
+  labs(title = "Mean weekly wage",
+       x = "Date",
+       y = "Mean earnings") +
+  theme_minimal()
+
 # event studies ----------------
 # Event study -----
 #* cleaning 
 
 # Calculate the difference in months between 'yearmon' and 'I247_date' as an integer
-full_df_employ <- full_df_employ %>%
+native_nonhisp_white <- native_nonhisp_white %>%
   mutate(
     # Create a date from the YEAR and month columns (assume day = 1)
     current_date = make_date(year, month, 1),
@@ -116,7 +165,6 @@ event <- feols(
   data = event_subset,   cluster = ~ County.x)
 
 summary(event)
-
 
 #* cleaning --------------- 
 
