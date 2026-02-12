@@ -89,7 +89,6 @@ native_nonhisp_white <- subset(native_nonhisp_white,  NATIVITY == 1 |NATIVITY ==
 
 
 # summary statistics ------
-
 sumtable(data)
 sumtable(foreign_hisp)
 sumtable(native_hisp)
@@ -99,40 +98,51 @@ sumtable(foreign_hisp_noncitizen)
 
 # summary graphs -----
 
-#* all data -----
-data_time <- data %>%
-  mutate(year_mon = as.Date(year_mon)) %>% # Ensure the date column is in Date format
-  group_by(year_month = floor_date(year_mon, "month")) %>% # Group by month
-  summarise(mean_EARNWEEK = mean(EARNWEEK, na.rm = TRUE)) %>% # Calculate mean of psavert
-  ungroup() # Always a good practice to ungroup
+#* write function  
 
-ggplot(data_time, aes(x = year_month, y = mean_EARNWEEK)) +
-  geom_line(color = "blue", linewidth = 1) +
-  labs(title = "Mean weekly wage",
-       x = "Date",
-       y = "Mean earnings") +
-  theme_minimal()
+graph_data_over_time <- function(data){
 
-#* foreign hispanic -----
-data_time <- foreign_hisp %>%
-  mutate(year_mon = as.Date(year_mon)) %>% # Ensure the date column is in Date format
-  group_by(year_month = floor_date(year_mon, "month")) %>% # Group by month
-  summarise(mean_EARNWEEK = mean(EARNWEEK, na.rm = TRUE)) %>% # Calculate mean of psavert
-  ungroup() # Always a good practice to ungroup
+  data_time <- data %>%
+    mutate(year_mon = as.Date(year_mon)) %>% 
+    group_by(year_month = floor_date(year_mon, "month")) %>%
+    summarise(mean_EARNWEEK = mean(EARNWEEK, na.rm = TRUE)) %>% 
+    ungroup() 
+  
+  graph <- ggplot(data_time, aes(x = year_month, y = mean_EARNWEEK)) +
+    geom_line(color = "blue", linewidth = 1) +
+    labs(title = "Mean weekly wage",
+         x = "Date",
+         y = "Mean earnings") +
+    theme_minimal()
 
-ggplot(data_time, aes(x = year_month, y = mean_EARNWEEK)) +
-  geom_line(color = "blue", linewidth = 1) +
-  labs(title = "Mean weekly wage",
-       x = "Date",
-       y = "Mean earnings") +
-  theme_minimal()
+  print (graph)
+}
+
+#* full dataset
+graph_data_over_time(data)
+
+#* foreign hispanic noncitizen-----
+graph_data_over_time(foreign_hisp_noncitizen)
+
+#* foreign hispanic naturalized citizen -----
+graph_data_over_time(foreign_hisp_naturalized)
+
+#* Native born hispanics 
+
+graph_data_over_time(native_hisp)
+
+#* Native born non hispanics 
+graph_data_over_time(native_nonhisp_white)
+
+
 
 # event studies ----------------
-# Event study -----
 #* cleaning 
 
 # Calculate the difference in months between 'yearmon' and 'I247_date' as an integer
-native_nonhisp_white <- native_nonhisp_white %>%
+
+
+data <- native_nonhisp_white %>%
   mutate(
     # Create a date from the YEAR and month columns (assume day = 1)
     current_date = make_date(year, month, 1),
