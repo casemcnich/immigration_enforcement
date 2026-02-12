@@ -137,46 +137,89 @@ graph_data_over_time(native_nonhisp_white)
 
 
 # event studies ----------------
-#* cleaning 
+#* cleaning function
 
 # Calculate the difference in months between 'yearmon' and 'I247_date' as an integer
-
-
-data <- native_nonhisp_white %>%
-  mutate(
-    # Create a date from the YEAR and month columns (assume day = 1)
-    current_date = make_date(year, month, 1),
-    
-    # Calculate whole months difference (handles NAs safely)
-    months_since_I247 = if_else(
-      !is.na(month_247a_county),
-      interval(month_247a_county, current_date) %/% months(1),
-      NA_integer_
+clean_data_event <- function(data){
+  data <- data %>%
+    mutate(
+      # Calculate whole months difference (handles NAs safely)
+      months_since_I247 = if_else(
+        !is.na(month_247a_county),
+        interval(month_247a_county, year_mon) %/% months(1),
+        NA_integer_
+      )
     )
-  )
+  
+  #creating a treatment variable for ever treated and always treated
+  data <- data %>% mutate(treat = ifelse(!is.na(c(month_247a_county)), 1, 0)) 
+  
+  # switching count to numeric 
+  data$count <- as.numeric(data$count)
+  
+  return (data)
+}
 
-#creating a treatment variable for ever treated and always treated
-full_df_employ <- full_df_employ %>% mutate(treat = ifelse(!is.na(c(month_247a_county)), 1, 0)) 
+#* wage event study function -----
+event_study <- function(data){
+  event_subset <- subset(data, month_247a_county > "2014-01-01")
+  
+  event_subset <- subset(event_subset, months_since_I247 < 20)
+  event_subset <- subset(event_subset, months_since_I247 > -20)
+  
+  event_subset$year_mon <- as.factor(event_subset$year_mon)
+  
+  event <- feols(
+    EARNWEEK ~ i(months_since_I247, treat, ref = -1)+ factor(year_mon) + State | County.x,
+    data = event_subset,   cluster = ~ County.x)
+  
+ print(summary(event))
+ 
+ # graph
+ graph <- iplot(event,
+       xlab = "Months Since I247",
+       ylab = "Effect on Weekly Earnings",
+       main = "Event Study: Effect of I247 on Earnings",
+       ref.line = 0)
+ 
+ print(graph)
+}
 
-#* arrests event study -----
+#* full dataset -----
+# running event study cleaning function
+data <- clean_data_event(data)
 
-event_subset <- subset(full_df_employ, month_247a_county > "2014-01-01")
+# run the event study
+event_study (data)
 
-event_subset <- subset(event_subset, months_since_I247 < 20)
-event_subset <- subset(event_subset, months_since_I247 > -20)
+#* foreign born non citizen hispanic ----
+# running event study cleaning function
+data <- clean_data_event(foreign_hisp_noncitizen)
+# run the event study
+event_study (foreign_hisp_noncitizen)
 
-event_subset$z_score_cound <- (event_subset$count - mean(event_subset$count)) / sd(event_subset$count)
-event_subset$z_score_cons <- (event_subset$monthly_emplvl_const - mean(event_subset$monthly_emplvl_const)) / sd(event_subset$monthly_emplvl_const)
+#*  foreign born naturalized citizen hispanic ----
 
-event_subset$current_date_factor <- as.factor(event_subset$current_date)
+# running event study cleaning function
+data <- clean_data_event(foreign_hisp_naturalized)
 
-event <- feols(
-  count~ i(months_since_I247, treat, ref = -1)+ factor(current_date_factor) + state | County.x,
-  data = event_subset,   cluster = ~ County.x)
+# run the event study
+event_study (foreign_hisp_naturalized)
 
-summary(event)
+#* native born hispanic -----
+# running event study cleaning function
+data <- clean_data_event(native_hisp)
 
-#* cleaning --------------- 
+# run the event study
+event_study (native_hisp)
+
+#* native born nonhispanic whites ----
+# running event study cleaning function
+data <- clean_data_event(native_nonhisp_white)
+
+# run the event study
+event_study (native_nonhisp_white)
+
 
 
 
