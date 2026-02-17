@@ -46,9 +46,12 @@ load("../data/foia_df.Rdata")
 # merge 
 data <- merge(foia_df, data, by.x = "FIPS", by.y = "COUNTY", all.y = T)
 
-# subset to just restaurants
-data <- subset(data, OCC >= 4000 & OCC <= 4150)
+# subset to just food service
+data <- subset(data, OCC == 4000 | OCC == 4010|OCC == 4020| OCC == 4030| OCC == 4050|OCC == 4110|OCC == 4120|OCC == 4140|OCC == 4160)
 
+# checking this worked 
+table(data$OCC)
+              
 # make a year_mon variable
 data$year_mon <- paste0(data$YEAR, "-", data$MONTH, "-", "01")
 data$year_mon <- as.Date(data$year_mon)
@@ -96,7 +99,7 @@ sumtable(native_nonhisp_white)
 sumtable(foreign_hisp_naturalized)
 sumtable(foreign_hisp_noncitizen)
 
-# summary graphs -----
+# summary graphs: full sample -----
 
 #* write function  
 
@@ -133,6 +136,75 @@ graph_data_over_time(native_hisp)
 
 #* Native born non hispanics 
 graph_data_over_time(native_nonhisp_white)
+
+# summary graphs by age group -----
+
+#* full dataset
+age_data <- subset(data, AGE >=25 & AGE <=49)
+graph_data_over_time(age_data)
+
+#* foreign hispanic noncitizen----
+age_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, AGE >=25 & AGE <=49)
+graph_data_over_time(age_foreign_hisp_noncitizen)
+
+#* foreign hispanic naturalized citizen -----
+age_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, AGE >=25 & AGE <=49)
+graph_data_over_time(age_foreign_hisp_naturalized)
+
+#* Native born hispanics 
+age_native_hisp <- subset(native_hisp, AGE >=25 & AGE <=49)
+graph_data_over_time(age_native_hisp)
+
+#* Native born non hispanics 
+age_native_nonhisp_white <- subset(native_nonhisp_white, AGE >=25 & AGE <=49)
+graph_data_over_time(age_native_nonhisp_white)
+
+# summary by gender -----
+
+#* full dataset
+male_data <- subset(data, SEX ==1)
+female_data <- subset(data, SEX ==2)
+graph_data_over_time(male_data)
+graph_data_over_time(female_data)
+
+#* foreign hispanic noncitizen----
+age_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, AGE >=25 & AGE <=49)
+graph_data_over_time(age_foreign_hisp_noncitizen)
+
+#* foreign hispanic naturalized citizen -----
+age_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, AGE >=25 & AGE <=49)
+graph_data_over_time(age_foreign_hisp_naturalized)
+
+#* Native born hispanics 
+age_native_hisp <- subset(native_hisp, AGE >=25 & AGE <=49)
+graph_data_over_time(age_native_hisp)
+
+#* Native born non hispanics 
+age_native_nonhisp_white <- subset(native_nonhisp_white, AGE >=25 & AGE <=49)
+graph_data_over_time(age_native_nonhisp_white)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -194,28 +266,28 @@ event_study (data)
 
 #* foreign born non citizen hispanic ----
 # running event study cleaning function
-data <- clean_data_event(foreign_hisp_noncitizen)
+foreign_hisp_noncitizen <- clean_data_event(foreign_hisp_noncitizen)
 # run the event study
 event_study (foreign_hisp_noncitizen)
 
 #*  foreign born naturalized citizen hispanic ----
 
 # running event study cleaning function
-data <- clean_data_event(foreign_hisp_naturalized)
+foreign_hisp_naturalized <- clean_data_event(foreign_hisp_naturalized)
 
 # run the event study
 event_study (foreign_hisp_naturalized)
 
 #* native born hispanic -----
 # running event study cleaning function
-data <- clean_data_event(native_hisp)
+native_hisp <- clean_data_event(native_hisp)
 
 # run the event study
 event_study (native_hisp)
 
 #* native born nonhispanic whites ----
 # running event study cleaning function
-data <- clean_data_event(native_nonhisp_white)
+native_nonhisp_white <- clean_data_event(native_nonhisp_white)
 
 # run the event study
 event_study (native_nonhisp_white)
