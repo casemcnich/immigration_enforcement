@@ -19,7 +19,8 @@ library('stringr')
 library('fixest')
 library('did')
 library("blscrapeR")
-
+library("viridis")
+install.packages("viridis")
 #libraries
 library('vtable')
 library('sf')
@@ -66,7 +67,7 @@ data$year_mon <- paste0(data$YEAR, "-", data$MONTH, "-", "01")
 data$year_mon <- as.Date(data$year_mon)
 
 # in labor force check 
-data <- subset(data, EMPSTAT>0 & EMPSTAT <30)
+data <- subset(data, EMPSTAT>0 & EMPSTAT <12)
 
 # make a nativity variable 
 data <- data %>%
@@ -170,22 +171,28 @@ ggsave("../graphs/allgroups_overtime.jpeg", width = 10, height = 5)
 #* full dataset
 age_data <- subset(data, AGE >=25 & AGE <=49)
 graph_data_over_time(age_data)
+ggsave("../graphs/data_age.jpeg", width = 10, height = 5)
+
 
 #* foreign hispanic noncitizen----
 age_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, AGE >=25 & AGE <=49)
 graph_data_over_time(age_foreign_hisp_noncitizen)
+ggsave("../graphs/foreign_hisp_noncitizen_age.jpeg", width = 10, height = 5)
 
 #* foreign hispanic naturalized citizen -----
 age_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, AGE >=25 & AGE <=49)
 graph_data_over_time(age_foreign_hisp_naturalized)
+ggsave("../graphs/foreign_hisp_naturalized_age.jpeg", width = 10, height = 5)
 
 #* Native born hispanics 
 age_native_hisp <- subset(native_hisp, AGE >=25 & AGE <=49)
 graph_data_over_time(age_native_hisp)
+ggsave("../graphs/native_hisp_age.jpeg", width = 10, height = 5)
 
 #* Native born non hispanics 
 age_native_nonhisp_white <- subset(native_nonhisp_white, AGE >=25 & AGE <=49)
 graph_data_over_time(age_native_nonhisp_white)
+ggsave("../graphs/native_nonhisp_white_age.jpeg", width = 10, height = 5)
 
 # summary by gender -----
 
@@ -193,31 +200,45 @@ graph_data_over_time(age_native_nonhisp_white)
 male_data <- subset(data, SEX ==1)
 female_data <- subset(data, SEX ==2)
 graph_data_over_time(male_data)
+ggsave("../graphs/data_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_data)
+ggsave("../graphs/data_female.jpeg", width = 10, height = 5)
+
 
 #* foreign hispanic noncitizen----
 male_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, SEX ==1)
 female_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, SEX ==2)
 graph_data_over_time(male_foreign_hisp_noncitizen)
+ggsave("../graphs/foreign_hisp_noncitizen_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_foreign_hisp_noncitizen)
+ggsave("../graphs/foreign_hisp_noncitizen_female.jpeg", width = 10, height = 5)
+
 
 #* foreign hispanic naturalized citizen -----
 male_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, SEX ==1)
 female_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, SEX ==2)
 graph_data_over_time(female_foreign_hisp_naturalized)
+ggsave("../graphs/foreign_hisp_naturalitzed_female.jpeg", width = 10, height = 5)
 graph_data_over_time(male_foreign_hisp_naturalized)
+ggsave("../graphs/foreign_hisp_naturalitzed_male.jpeg", width = 10, height = 5)
+
+
 
 #* Native born hispanics 
 male_native_hisp <- subset(native_hisp, SEX ==1)
 female_native_hisp <- subset(native_hisp, SEX ==2)
 graph_data_over_time(male_native_hisp)
+ggsave("../graphs/native_hisp_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_native_hisp)
+ggsave("../graphs/native_hisp_female.jpeg", width = 10, height = 5)
 
 #* Native born non hispanics 
 male_native_nonhisp_white <- subset(native_nonhisp_white, SEX ==1)
 female_native_nonhisp_white <- subset(native_nonhisp_white, SEX ==2)
 graph_data_over_time(male_native_nonhisp_white)
+ggsave("../graphs/native_nonhisp_white_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_native_nonhisp_white)
+ggsave("../graphs/native_nonhisp_white_female.jpeg", width = 10, height = 5)
 
 # mapping -----
 
@@ -233,14 +254,29 @@ usa <- subset(usa, STATEFP != "15") #Hawaii
 usa <- subset(usa, STATEFP != "02") #Alaska
 usa <- subset(usa, STATEFP != "66") #guam
 
-ggplot(usa) 
+ggplot(usa) +
+  geom_sf() +
+  theme_minimal()
 
-ggplot() + 
-  geom_sf(data = usa_merged, aes(fill = total_count)) +  
-  labs(title = "Arrests by County") +
-  scale_fill_gradient(
-    low = "white", high = "darkred",  # or any color you prefer
-    name = "Total Arrests"
+# making the map of earnings ----
+# aggregating over county/4 years
+county_avg <- data %>%
+  group_by(FIPS) %>%
+  summarise(
+    county_mean_EARNWEEK = weighted.mean(EARNWEEK, WTFINL, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# merging back into original data and mapping
+earnings_map <- usa %>%
+  left_join(county_avg, by = c("GEOID" = "FIPS"))
+
+ggplot(earnings_map) +
+  geom_sf(aes(fill = county_mean_EARNWEEK), color = "black", size = 0.1) +
+  scale_fill_viridis(option = "viridis", na.value = "white") +
+  labs(
+    title = "County-Level Mean Weekly Earnings over whole sample",
+    fill = "Mean Weekly Earnings"
   ) +
   theme_minimal()
 
