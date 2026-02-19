@@ -20,6 +20,15 @@ library('fixest')
 library('did')
 library("blscrapeR")
 
+#libraries
+library('vtable')
+library('sf')
+library(tidyverse)
+library(data.table)
+library(zipcodeR)
+library(tmap)
+library("devtools")
+
 # wd ----
 setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
 
@@ -59,44 +68,24 @@ data$year_mon <- as.Date(data$year_mon)
 # in labor force check 
 data <- subset(data, EMPSTAT>0 & EMPSTAT <30)
 
-#* Foreign-born non-citizen Hispanics  --------------------------------
+# make a nativity variable 
+data <- data %>%
+  mutate(group = case_when(
+    NATIVITY == 5 & HISPAN >= 100 & HISPAN <= 900 & CITIZEN == 5 ~ "foreign_hisp_noncitizen",
+    NATIVITY == 5 & HISPAN >= 100 & HISPAN <= 900 & CITIZEN == 4 ~ "foreign_hisp_naturalized",
+    NATIVITY %in% c(1,2,3,4) & HISPAN >= 100 & HISPAN <= 900 ~ "native_hisp",
+    NATIVITY %in% c(1,2,3,4) & HISPAN == 0 & RACE == 100 ~ "native_nonhisp_white",
+    TRUE ~ NA_character_
+  ))
 
-#foreign born 
-foreign_hisp <- subset(data, NATIVITY == 5 )
-
-# hispanic 
-foreign_hisp <- subset(foreign_hisp, HISPAN >= 100 & HISPAN <= 900)
-
-# non citizen 
-foreign_hisp_noncitizen <- subset(foreign_hisp, CITIZEN == 5)
-
-#* Foreign-born naturalized citizen Hispanics  --------------------------------
-foreign_hisp_naturalized <- subset(foreign_hisp, CITIZEN == 4)
-
-#* Native-born Hispanics --------------------------------
-# hispanic 
-native_hisp <- subset(data, HISPAN >= 100 & HISPAN <= 900)
-
-# native 
-foreign_hisp <- subset(native_hisp, NATIVITY == 1 |NATIVITY == 2|NATIVITY == 3|NATIVITY == 4)
-
-#* Native-born non-Hispanic whites --------------------------------
-
-# native born 
-native_nonhisp_white <-  subset(data, NATIVITY == 1 |NATIVITY == 2|NATIVITY == 3|NATIVITY == 4)
-
-# non hispanic white
-native_nonhisp_white <- subset (native_nonhisp_white, HISPAN == 000)
-
-# white
-native_nonhisp_white <- subset (native_nonhisp_white, RACE == 100)
-
-native_nonhisp_white <- subset(native_nonhisp_white,  NATIVITY == 1 |NATIVITY == 2|NATIVITY == 3|NATIVITY == 4)
+foreign_hisp_noncitizen <- subset (data, group == "foreign_hisp_noncitizen")
+foreign_hisp_naturalized <- subset(data, group == "foreign_hisp_naturalized")
+native_hisp <- subset(data, group == "native_hisp")
+native_nonhisp_white <- subset(data, group == "native_nonhisp_white")
 
 
 # summary statistics ------
 sumtable(data)
-sumtable(foreign_hisp)
 sumtable(native_hisp)
 sumtable(native_nonhisp_white)
 sumtable(foreign_hisp_naturalized)
@@ -111,7 +100,7 @@ graph_data_over_time <- function(data){
   data_time <- data %>%
     mutate(year_mon = as.Date(year_mon)) %>% 
     group_by(year_month = floor_date(year_mon, "month")) %>%
-    summarise(mean_EARNWEEK = mean(EARNWEEK, na.rm = TRUE)) %>% 
+    summarise(mean_EARNWEEK = weighted.mean(EARNWEEK, WTFINL, na.rm = TRUE)) %>% 
     ungroup() 
   
   graph <- ggplot(data_time, aes(x = year_month, y = mean_EARNWEEK)) +
@@ -126,19 +115,55 @@ graph_data_over_time <- function(data){
 
 #* full dataset
 graph_data_over_time(data)
+ggsave("../graphs/full_data_overtime.jpeg", width = 10, height = 5)
 
 #* foreign hispanic noncitizen-----
 graph_data_over_time(foreign_hisp_noncitizen)
+ggsave("../graphs/foreign_hisp_noncitizen_overtime.jpeg", width = 10, height = 5)
+
 
 #* foreign hispanic naturalized citizen -----
 graph_data_over_time(foreign_hisp_naturalized)
+ggsave("../graphs/foreign_hisp_naturalized_overtime.jpeg", width = 10, height = 5)
 
 #* Native born hispanics 
 
 graph_data_over_time(native_hisp)
+ggsave("../graphs/native_hisp_overtime.jpeg", width = 10, height = 5)
+
 
 #* Native born non hispanics 
 graph_data_over_time(native_nonhisp_white)
+ggsave("../graphs/native_nonhisp_white.jpeg", width = 10, height = 5)
+
+# weighted combined graph
+
+compare_all_groups <- function(data) {
+  
+  plot_data <- data %>%
+    filter(!is.na(group)) %>%
+    mutate(year_mon = as.Date(year_mon)) %>%
+    group_by(group, year_month = floor_date(year_mon, "month")) %>%
+    summarise(
+      mean_EARNWEEK = weighted.mean(EARNWEEK, WTFINL, na.rm = TRUE),
+      .groups = "drop"
+    )
+  
+  ggplot(plot_data, aes(x = year_month, 
+                        y = mean_EARNWEEK, 
+                        color = group)) +
+    geom_line(linewidth = 0.6) +  
+    labs(title = "Mean Weekly Earnings Over Time",
+         x = "Date",
+         y = "Weighted Mean Weekly Earnings",
+         color = "Group") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+}
+
+compare_all_groups(data)
+ggsave("../graphs/allgroups_overtime.jpeg", width = 10, height = 5)
+
 
 # summary graphs by age group -----
 
@@ -194,7 +219,30 @@ female_native_nonhisp_white <- subset(native_nonhisp_white, SEX ==2)
 graph_data_over_time(male_native_nonhisp_white)
 graph_data_over_time(female_native_nonhisp_white)
 
+# mapping -----
 
+#importing a USA shapefile
+usa <- st_read("../data/nhgis0022_shapefile_tl2016_us_county_2016/US_county_2016.shp")
+
+#dropping puerto rico 
+usa <- subset(usa, STATEFP != "72")
+usa <- subset(usa, STATEFP != "78") #virgin island
+usa <- subset(usa, STATEFP != "69") #mariana islands
+usa <- subset(usa, STATEFP != "60") #American Samoa
+usa <- subset(usa, STATEFP != "15") #Hawaii
+usa <- subset(usa, STATEFP != "02") #Alaska
+usa <- subset(usa, STATEFP != "66") #guam
+
+ggplot(usa) 
+
+ggplot() + 
+  geom_sf(data = usa_merged, aes(fill = total_count)) +  
+  labs(title = "Arrests by County") +
+  scale_fill_gradient(
+    low = "white", high = "darkred",  # or any color you prefer
+    name = "Total Arrests"
+  ) +
+  theme_minimal()
 
 # event studies ----------------
 #* cleaning function
