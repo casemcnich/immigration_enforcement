@@ -56,6 +56,9 @@ table(data$OCC)
 data$year_mon <- paste0(data$YEAR, "-", data$MONTH, "-", "01")
 data$year_mon <- as.Date(data$year_mon)
 
+# in labor force check 
+data <- subset(data, EMPSTAT>0 & EMPSTAT <30)
+
 #* Foreign-born non-citizen Hispanics  --------------------------------
 
 #foreign born 
@@ -168,43 +171,28 @@ graph_data_over_time(male_data)
 graph_data_over_time(female_data)
 
 #* foreign hispanic noncitizen----
-age_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, AGE >=25 & AGE <=49)
-graph_data_over_time(age_foreign_hisp_noncitizen)
+male_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, SEX ==1)
+female_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, SEX ==2)
+graph_data_over_time(male_foreign_hisp_noncitizen)
+graph_data_over_time(female_foreign_hisp_noncitizen)
 
 #* foreign hispanic naturalized citizen -----
-age_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, AGE >=25 & AGE <=49)
-graph_data_over_time(age_foreign_hisp_naturalized)
+male_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, SEX ==1)
+female_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, SEX ==2)
+graph_data_over_time(female_foreign_hisp_naturalized)
+graph_data_over_time(male_foreign_hisp_naturalized)
 
 #* Native born hispanics 
-age_native_hisp <- subset(native_hisp, AGE >=25 & AGE <=49)
-graph_data_over_time(age_native_hisp)
+male_native_hisp <- subset(native_hisp, SEX ==1)
+female_native_hisp <- subset(native_hisp, SEX ==2)
+graph_data_over_time(male_native_hisp)
+graph_data_over_time(female_native_hisp)
 
 #* Native born non hispanics 
-age_native_nonhisp_white <- subset(native_nonhisp_white, AGE >=25 & AGE <=49)
-graph_data_over_time(age_native_nonhisp_white)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+male_native_nonhisp_white <- subset(native_nonhisp_white, SEX ==1)
+female_native_nonhisp_white <- subset(native_nonhisp_white, SEX ==2)
+graph_data_over_time(male_native_nonhisp_white)
+graph_data_over_time(female_native_nonhisp_white)
 
 
 
