@@ -20,8 +20,6 @@ library('fixest')
 library('did')
 library("blscrapeR")
 library("viridis")
-install.packages("viridis")
-#libraries
 library('vtable')
 library('sf')
 library(tidyverse)
@@ -41,11 +39,11 @@ if (!require("ipumsr")) stop("Reading IPUMS data into R requires the ipumsr pack
 ddi <- read_ipums_ddi("../data/cps_00027.xml")
 data <- read_ipums_micro(ddi)
 
+# this is not as relevant because not everyone should be paid hourly
 mean(data$HOURWAGE_CPIU_2010)
 # clean ipums data -----
-# drop people who are not in the labor force at all
-data <- subset(data, HOURWAGE_CPIU_2010 == 99999.99)
 
+table(data$COUNTY)
 data <- subset(data, COUNTY!= 0)
 
 table(data$OCC)
@@ -56,12 +54,6 @@ load("../data/foia_df.Rdata")
 # merge 
 data <- merge(foia_df, data, by.x = "FIPS", by.y = "COUNTY", all.y = T)
 
-# subset to just food service
-data <- subset(data, OCC == 4000 | OCC == 4010|OCC == 4020| OCC == 4030| OCC == 4050|OCC == 4110|OCC == 4120|OCC == 4140|OCC == 4160)
-
-# checking this worked 
-table(data$OCC)
-              
 # make a year_mon variable
 data$year_mon <- paste0(data$YEAR, "-", data$MONTH, "-", "01")
 data$year_mon <- as.Date(data$year_mon)
@@ -69,8 +61,11 @@ data$year_mon <- as.Date(data$year_mon)
 # in labor force check 
 data <- subset(data, EMPSTAT>0 & EMPSTAT <12)
 
+# drop anyone who is not in universe 
+data <- subset(data,EARNWEEK < 9999.99)
+
 # make a nativity variable 
-data <- data %>%
+data_to_map <- data %>%
   mutate(group = case_when(
     NATIVITY == 5 & HISPAN >= 100 & HISPAN <= 900 & CITIZEN == 5 ~ "foreign_hisp_noncitizen",
     NATIVITY == 5 & HISPAN >= 100 & HISPAN <= 900 & CITIZEN == 4 ~ "foreign_hisp_naturalized",
@@ -79,11 +74,16 @@ data <- data %>%
     TRUE ~ NA_character_
   ))
 
+# subset to just food service
+data <- subset(data_to_map, OCC == 4000 | OCC == 4010|OCC == 4020| OCC == 4030| OCC == 4050|OCC == 4110|OCC == 4120|OCC == 4140|OCC == 4160)
+
+# checking this worked 
+table(data$OCC)
+
 foreign_hisp_noncitizen <- subset (data, group == "foreign_hisp_noncitizen")
 foreign_hisp_naturalized <- subset(data, group == "foreign_hisp_naturalized")
 native_hisp <- subset(data, group == "native_hisp")
 native_nonhisp_white <- subset(data, group == "native_nonhisp_white")
-
 
 # summary statistics ------
 sumtable(data)
@@ -260,6 +260,29 @@ ggplot(usa) +
 
 # making the map of earnings ----
 # aggregating over county/4 years
+#* all occupations ------
+county_avg <- data_to_map %>%
+  group_by(FIPS) %>%
+  summarise(
+    county_mean_EARNWEEK = weighted.mean(EARNWEEK, WTFINL, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+earnings_map <- usa %>%
+  left_join(county_avg, by = c("GEOID" = "FIPS"))
+
+all <- ggplot(earnings_map) +
+  geom_sf(aes(fill = county_mean_EARNWEEK), color = "black", size = 0.1) +
+  scale_fill_viridis(option = "viridis", na.value = "white") +
+  labs(
+    title = "County-Level Mean Weekly Earnings over whole sample",
+    fill = "Mean Weekly Earnings"
+  ) +
+  theme_minimal()
+ggsave("../graphs/all_industries.jpeg", width = 10, height = 5)
+
+
+#* just resturants -------
 county_avg <- data %>%
   group_by(FIPS) %>%
   summarise(
@@ -271,7 +294,7 @@ county_avg <- data %>%
 earnings_map <- usa %>%
   left_join(county_avg, by = c("GEOID" = "FIPS"))
 
-ggplot(earnings_map) +
+rest <- ggplot(earnings_map) +
   geom_sf(aes(fill = county_mean_EARNWEEK), color = "black", size = 0.1) +
   scale_fill_viridis(option = "viridis", na.value = "white") +
   labs(
@@ -279,6 +302,8 @@ ggplot(earnings_map) +
     fill = "Mean Weekly Earnings"
   ) +
   theme_minimal()
+rest
+ggsave("../graphs/restaurants_map.jpeg", width = 10, height = 5)
 
 # event studies ----------------
 #* cleaning function
