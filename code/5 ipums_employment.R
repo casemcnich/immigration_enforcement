@@ -29,7 +29,7 @@ library('tmap')
 library('devtools')
 
 # wd 
-setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
+setwd("C:/Users/casem/Box/immigration_enforcement")
 
 # download ipums data -----
 # NOTE: To load data, you must download both the extract's data and the DDI
@@ -37,7 +37,7 @@ setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
 
 if (!require("ipumsr")) stop("Reading IPUMS data into R requires the ipumsr package. It can be installed using the following command: install.packages('ipumsr')")
 
-ddi <- read_ipums_ddi("../data/cps_00027.xml")
+ddi <- read_ipums_ddi("data/cps_00027.xml")
 data <- read_ipums_micro(ddi)
 
 # this is not as relevant because not everyone should be paid hourly
@@ -51,7 +51,7 @@ data <- subset(data, COUNTY!= 0)
 table(data$OCC)
 
 # foia aata
-load("../data/foia_df.Rdata")
+load("data/foia_df.Rdata")
 
 # merge 
 data <- merge(foia_df, data, by.x = "FIPS", by.y = "COUNTY", all.y = T)
@@ -117,21 +117,21 @@ graph_data_over_time <- function(data){
 
 #* full dataset -----
 graph_data_over_time(data)
-ggsave("../graphs/full_data_overtime.jpeg", width = 10, height = 5)
+ggsave("graphs/full_data_overtime.jpeg", width = 10, height = 5)
 
 #* foreign hispanic noncitizen-----
 graph_data_over_time(foreign_hisp_noncitizen)
-ggsave("../graphs/foreign_hisp_noncitizen_overtime.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_noncitizen_overtime.jpeg", width = 10, height = 5)
 
 
 #* foreign hispanic naturalized citizen -----
 graph_data_over_time(foreign_hisp_naturalized)
-ggsave("../graphs/foreign_hisp_naturalized_overtime.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_naturalized_overtime.jpeg", width = 10, height = 5)
 
 #* Native born hispanics -----
 
 graph_data_over_time(native_hisp)
-ggsave("../graphs/native_hisp_overtime.jpeg", width = 10, height = 5)
+ggsave("graphs/native_hisp_overtime.jpeg", width = 10, height = 5)
 
 
 #* Native born non hispanics ----
@@ -164,7 +164,7 @@ compare_all_groups <- function(data) {
 }
 
 compare_all_groups(data)
-ggsave("../graphs/allgroups_overtime.jpeg", width = 10, height = 5)
+ggsave("graphs/allgroups_overtime.jpeg", width = 10, height = 5)
 
 
 # summary graphs by age group -----
@@ -172,28 +172,28 @@ ggsave("../graphs/allgroups_overtime.jpeg", width = 10, height = 5)
 #* full dataset ----
 age_data <- subset(data, AGE >=25 & AGE <=49)
 graph_data_over_time(age_data)
-ggsave("../graphs/data_age.jpeg", width = 10, height = 5)
+ggsave("graphs/data_age.jpeg", width = 10, height = 5)
 
 
 #* foreign hispanic noncitizen----
 age_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, AGE >=25 & AGE <=49)
 graph_data_over_time(age_foreign_hisp_noncitizen)
-ggsave("../graphs/foreign_hisp_noncitizen_age.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_noncitizen_age.jpeg", width = 10, height = 5)
 
 #* foreign hispanic naturalized citizen -----
 age_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, AGE >=25 & AGE <=49)
 graph_data_over_time(age_foreign_hisp_naturalized)
-ggsave("../graphs/foreign_hisp_naturalized_age.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_naturalized_age.jpeg", width = 10, height = 5)
 
 #* Native born hispanics -----
 age_native_hisp <- subset(native_hisp, AGE >=25 & AGE <=49)
 graph_data_over_time(age_native_hisp)
-ggsave("../graphs/native_hisp_age.jpeg", width = 10, height = 5)
+ggsave("graphs/native_hisp_age.jpeg", width = 10, height = 5)
 
 #* Native born non hispanics -----
 age_native_nonhisp_white <- subset(native_nonhisp_white, AGE >=25 & AGE <=49)
 graph_data_over_time(age_native_nonhisp_white)
-ggsave("../graphs/native_nonhisp_white_age.jpeg", width = 10, height = 5)
+ggsave("graphs/native_nonhisp_white_age.jpeg", width = 10, height = 5)
 
 # summary by gender -----
 
@@ -201,33 +201,33 @@ ggsave("../graphs/native_nonhisp_white_age.jpeg", width = 10, height = 5)
 male_data <- subset(data, SEX ==1)
 female_data <- subset(data, SEX ==2)
 graph_data_over_time(male_data)
-ggsave("../graphs/data_male.jpeg", width = 10, height = 5)
+ggsave("graphs/data_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_data)
-ggsave("../graphs/data_female.jpeg", width = 10, height = 5)
+ggsave("graphs/data_female.jpeg", width = 10, height = 5)
 
 
 #* foreign hispanic noncitizen----
 male_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, SEX ==1)
 female_foreign_hisp_noncitizen <- subset(foreign_hisp_noncitizen, SEX ==2)
 graph_data_over_time(male_foreign_hisp_noncitizen)
-ggsave("../graphs/foreign_hisp_noncitizen_male.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_noncitizen_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_foreign_hisp_noncitizen)
-ggsave("../graphs/foreign_hisp_noncitizen_female.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_noncitizen_female.jpeg", width = 10, height = 5)
 
 
 #* foreign hispanic naturalized citizen -----
 male_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, SEX ==1)
 female_foreign_hisp_naturalized <- subset(foreign_hisp_naturalized, SEX ==2)
 graph_data_over_time(female_foreign_hisp_naturalized)
-ggsave("../graphs/foreign_hisp_naturalitzed_female.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_naturalitzed_female.jpeg", width = 10, height = 5)
 graph_data_over_time(male_foreign_hisp_naturalized)
-ggsave("../graphs/foreign_hisp_naturalitzed_male.jpeg", width = 10, height = 5)
+ggsave("graphs/foreign_hisp_naturalitzed_male.jpeg", width = 10, height = 5)
 
 #* Native born hispanics -----
 male_native_hisp <- subset(native_hisp, SEX ==1)
 female_native_hisp <- subset(native_hisp, SEX ==2)
 graph_data_over_time(male_native_hisp)
-ggsave("../graphs/native_hisp_male.jpeg", width = 10, height = 5)
+ggsave("graphs/native_hisp_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_native_hisp)
 ggsave("../graphs/native_hisp_female.jpeg", width = 10, height = 5)
 
@@ -235,13 +235,13 @@ ggsave("../graphs/native_hisp_female.jpeg", width = 10, height = 5)
 male_native_nonhisp_white <- subset(native_nonhisp_white, SEX ==1)
 female_native_nonhisp_white <- subset(native_nonhisp_white, SEX ==2)
 graph_data_over_time(male_native_nonhisp_white)
-ggsave("../graphs/native_nonhisp_white_male.jpeg", width = 10, height = 5)
+ggsave("graphs/native_nonhisp_white_male.jpeg", width = 10, height = 5)
 graph_data_over_time(female_native_nonhisp_white)
-ggsave("../graphs/native_nonhisp_white_female.jpeg", width = 10, height = 5)
+ggsave("graphs/native_nonhisp_white_female.jpeg", width = 10, height = 5)
 
 # mapping -----
 #importing a USA shapefile
-usa <- st_read("../data/nhgis0022_shapefile_tl2016_us_county_2016/US_county_2016.shp")
+usa <- st_read("data/nhgis0022_shapefile_tl2016_us_county_2016/US_county_2016.shp")
 
 #dropping puerto rico 
 usa <- subset(usa, STATEFP != "72")
@@ -297,7 +297,7 @@ rest <- ggplot(earnings_map) +
   ) +
   theme_minimal()
 rest
-ggsave("../graphs/restaurants_map.jpeg", width = 10, height = 5)
+ggsave("graphs/restaurants_map.jpeg", width = 10, height = 5)
 
 # event studies ----------------
 #* cleaning function ----

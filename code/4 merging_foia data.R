@@ -23,12 +23,12 @@ library('did')
 library("blscrapeR")
 
 # wd ----
-setwd("C:/Users/casem/Desktop/immigration/immigration_enforcement")
+setwd("C:/Users/casem/Box/immigration_enforcement")
 
 # loading the three datasets ----
-I247a <- read.csv("../data/foia/detainers_10_10_25.csv")
-pep <- read.csv("../data/foia/PEP_2015.csv")
-df <- read.csv("../data/foia/map_2.csv")
+I247a <- read.csv("data/foia/detainers_10_10_25.csv")
+pep <- read.csv("data/foia/PEP_2015.csv")
+df <- read.csv("data/foia/map_2.csv")
 
 # cleaning detainers 2017 data ----
 
