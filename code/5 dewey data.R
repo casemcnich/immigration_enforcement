@@ -2,8 +2,9 @@
 # the purpose of this is to merge the dewey data with trac
 # for now this is trac data
 # last modified by casey mcnichols
-# last modified on 9.29.26
+# last modified on 9.30.26
 ##########################################
+
 #loading packages
 library('jsonlite')
 library('stringr')
@@ -23,8 +24,9 @@ setwd("C:/Users/casem/Box/immigration_enforcement")
 dewey <- read.csv("data/weekly-patterns-plus-sample.csv",
                   stringsAsFactors = FALSE
 )
-# trac employment and nhgis data
-trac_employment <- load("data/nhgis_qcew_trac_employ.Rdata")
+
+# trac employment merged with nhgis data
+trac_wages <- load("data/total_wages_restaurant.rds")
 
 
 # dewey data cleaning ----------------------
@@ -54,40 +56,39 @@ dewey_restaurants <- dewey_restaurants %>%
 # 61-240 minutes
 # >240 minutes
 
-#* create dwell-time variables --------------------------------
 dewey_restaurants <- dewey_restaurants %>%
   mutate(
-    # Number of visits lasting less than 5 minutes
+    # less than 5 minutes
     dwell_under_5 = as.numeric(
       str_extract(bucketed_dwell_times, "(?<=<5\":)\\d+")
     ),
     
-    # Number of visits lasting 5-20 minutes
+    # 5-20 minutes
     dwell_5_20 = as.numeric(
       str_extract(bucketed_dwell_times, "(?<=5-20\":)\\d+")
     ),
     
-    # Number of visits lasting 21-60 minutes
+    # 21-60 min
     dwell_21_60 = as.numeric(
       str_extract(bucketed_dwell_times, "(?<=21-60\":)\\d+")
     ),
     
-    # Number of visits lasting 61-240 minutes
+    # 61-240 minutes
     dwell_61_240 = as.numeric(
       str_extract(bucketed_dwell_times, "(?<=61-240\":)\\d+")
     ),
     
-    # Number of visits lasting more than 240 minutes
+    # 240 minutes
     dwell_over_240 = as.numeric(
       str_extract(bucketed_dwell_times, "(?=>240\":)\\d+")
     )
   )
 
-#* create summary measures ------------------------------------
+#* summary stats ------------------------------------
 dewey_restaurants <- dewey_restaurants %>%
   mutate(
     
-    # Total number of visits
+    # total number of visits
     dwell_total =
       dwell_under_5 +
       dwell_5_20 +
@@ -108,36 +109,32 @@ dewey_restaurants <- dewey_restaurants %>%
     share_over_240 =
       dwell_over_240 / dwell_total
   )
+
 #* save restaurant-level data ---------------------------------
+#save(
+ # dewey_restaurants,
+ # file = "data/dewey_restaurants.rds"
+#)
 
-save(
-  dewey_restaurants,
-  file = "data/dewey_restaurants.Rdata"
-)
-
-#* aggregate to county ----------------------------------------
-# Add up the dwell-time measures across restaurants
-# within each county.
+#* aggregate by county ----------------------------------------
 dewey_county <- dewey_restaurants %>%
   group_by(county_fips) %>%
   summarise(
-    
-    # Number of restaurants in the county
+    # number of restaurants in the county
     restaurants = n(),
     
-    # Total visits in each dwell-time bucket
+    # total visits in each dwell-time bucket
     dwell_under_5 = sum(dwell_under_5, na.rm = TRUE),
     dwell_5_20 = sum(dwell_5_20, na.rm = TRUE),
     dwell_21_60 = sum(dwell_21_60, na.rm = TRUE),
     dwell_61_240 = sum(dwell_61_240, na.rm = TRUE),
     dwell_over_240 = sum(dwell_over_240, na.rm = TRUE),
     
-    # Total visits
+    # total visits
     dwell_total = sum(dwell_total, na.rm = TRUE),
     
-    # Total visits lasting more than one hour
+    # total visits lasting more than hour
     dwell_over_60 = sum(dwell_over_60, na.rm = TRUE),
-    
     .groups = "drop"
   )
 
@@ -145,14 +142,14 @@ dewey_county <- dewey_restaurants %>%
 #* calculate county-level shares -------------------------------
 dewey_county <- dewey_county %>%
   mutate(
-    # Share of visits lasting more than one hour
+    # share of visits lasting over hour
     share_over_60 =
       dwell_over_60 / dwell_total,
     
-    # Share of visits lasting more than four hours
+    # share of visits lasting more than four hours
     share_over_240 =
       dwell_over_240 / dwell_total
   )
 
 #* save county-level data -------------------------------------
-save(dewey_county, file = "data/dewey_county.Rdata")
+# save(dewey_county, file = "data/dewey_county.Rdata")
