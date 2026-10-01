@@ -287,11 +287,11 @@ foia_df = subset(foia_df, select = c("FIPS", "State", "County.x", "county_state"
                                      "pep_id", "pep_month"))
 
 # saving the data to merge with ipums
-save(foia_df, file ="../data/foia_df.Rdata" )
+save(foia_df, file ="data/foia_df.Rdata" )
 
 ######## pairing with the wage and employment data #############
-load("../data/nhgis_qcew_trac_employ.Rdata")
-load("../data/nhgis_qcew_trac_wages.Rdata")
+load("data/nhgis_qcew_trac_employ.Rdata")
+load("data/nhgis_qcew_trac_wages.Rdata")
 
 # merging - this expands to a panel so this makes sense it gets much larger
 full_df_employ <- merge(foia_df, trac_employment, by.x = "FIPS", by.y = "area_fips", all.y = T)

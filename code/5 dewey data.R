@@ -80,11 +80,11 @@ dewey_restaurants <- dewey_restaurants %>%
     
     # 240 minutes
     dwell_over_240 = as.numeric(
-      str_extract(bucketed_dwell_times, "(?=>240\":)\\d+")
+      str_extract(bucketed_dwell_times, '(?<=">240":)\\d+')
     )
   )
 
-#* summary stats ------------------------------------
+#* summary stats -----------------------------
 dewey_restaurants <- dewey_restaurants %>%
   mutate(
     
@@ -139,7 +139,7 @@ dewey_county <- dewey_restaurants %>%
   )
 
 
-#* calculate county-level shares -------------------------------
+#* county-level shares -------------------------------
 dewey_county <- dewey_county %>%
   mutate(
     # share of visits lasting over hour
@@ -153,3 +153,5 @@ dewey_county <- dewey_county %>%
 
 #* save county-level data -------------------------------------
 # save(dewey_county, file = "data/dewey_county.Rdata")
+
+# merge with foia + trac data ---------------------------------
