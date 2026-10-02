@@ -154,6 +154,11 @@ dewey_county <- dewey_county %>%
 #* save county-level data -------------------------------------
 # save(dewey_county, file = "data/dewey_county.Rdata")
 
+# load patterns plus linking data -----------------------------
+linking <- read.csv("data/patterns-plus-crosswalk-sample.csv",
+                     stringsAsFactors = FALSE
+)
+
 # load dewey placekey data ------------------------------------
 placekey <- read.csv("data/global-places-poi-geometry-sample.csv",
                   stringsAsFactors = FALSE
@@ -165,7 +170,11 @@ placekey <- placekey %>%
   filter(top_category == "Restaurants and Other Eating Places"
   )
 
-# merge dewey and safegraph data on place_id
+# merge all the data ------------------------------------------
+# merge dewey and linking data on store_id
+dewey_restaurants <- left_join(dewey_restaurants, linking, by = c("id_store" = "id_store"))
 
+# merge dewey and placekey on placekey
+dewey_restaurants <- left_join(dewey_restaurants, placekey, by = c("placekey" = "placekey"))
 
 # merge with foia + trac data ---------------------------------
