@@ -15,11 +15,23 @@ library('lubridate')
 library('vtable')
 library('sf')
 library('zoo')
+# for data download
+library('deweyr')
 
 # setting the working directory -----------------------
 setwd("C:/Users/casem/Box/immigration_enforcement")
 
 # load data -----------------
+
+# Download a specific date range
+#download_dewey(
+#  api_key = "your-api-key",
+#  folder_id = "abc123",
+#  partition_key_after = "2014-01-01",
+#  partition_key_before = "2019-01-01",
+#  download_path = 'C:/Users/casem/Box/immigration_enforcement/data'
+#)
+
 # dewey test data
 dewey <- read.csv("data/weekly-patterns-plus-sample.csv",
                   stringsAsFactors = FALSE
