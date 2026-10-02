@@ -154,4 +154,18 @@ dewey_county <- dewey_county %>%
 #* save county-level data -------------------------------------
 # save(dewey_county, file = "data/dewey_county.Rdata")
 
+# load dewey placekey data ------------------------------------
+placekey <- read.csv("data/global-places-poi-geometry-sample.csv",
+                  stringsAsFactors = FALSE
+)
+
+# filter to just US and food service
+placekey <- placekey %>%
+  filter(iso_country_code == "US") %>%
+  filter(top_category == "Restaurants and Other Eating Places"
+  )
+
+# merge dewey and safegraph data on place_id
+
+
 # merge with foia + trac data ---------------------------------
