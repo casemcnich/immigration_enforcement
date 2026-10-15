@@ -163,6 +163,61 @@ dewey_county <- dewey_county %>%
       dwell_over_240 / dwell_total
   )
 
+#* do some more data quality checks 
+dewey_restaurants %>%
+  summarise(
+    rows = n(),
+    unique_stores = n_distinct(id_store),
+    unique_placekeys = n_distinct(placekey),
+    missing_store_id = sum(is.na(id_store)),
+    missing_placekey = sum(is.na(placekey)),
+    missing_cbg = sum(is.na(poi_cbg))
+  )
+
+#* dwell-time shares -------------------------------------------
+
+dewey_restaurants <- dewey_restaurants %>%
+  mutate(
+    share_under_5 = if_else(
+      dwell_total > 0, dwell_under_5 / dwell_total, NA_real_
+    ),
+    share_5_20 = if_else(
+      dwell_total > 0, dwell_5_20 / dwell_total, NA_real_
+    ),
+    share_21_60 = if_else(
+      dwell_total > 0, dwell_21_60 / dwell_total, NA_real_
+    ),
+    share_61_240 = if_else(
+      dwell_total > 0, dwell_61_240 / dwell_total, NA_real_
+    ),
+    share_over_240 = if_else(
+      dwell_total > 0, dwell_over_240 / dwell_total, NA_real_
+    )
+  )
+
+# data quality checks -----------------------------------------
+
+# missingness
+dewey_restaurants %>%
+  summarise(
+    n_rows = n(),
+    n_stores = n_distinct(id_store),
+    n_placekeys = n_distinct(placekey),
+    n_counties = n_distinct(county_fips),
+    missing_dwell = sum(is.na(bucketed_dwell_times)),
+    missing_location = sum(is.na(poi_cbg))
+  )
+
+# how the total visits are gonna be distributed
+summary(dewey_restaurants$dwell_total)
+
+# extreme values
+quantile(
+  dewey_restaurants$dwell_total,
+  probs = c(0, .25, .5, .75, .9, .95, .99, 1),
+  na.rm = TRUE
+)
+
 #* save county-level data -------------------------------------
 # save(dewey_county, file = "data/dewey_county.Rdata")
 
