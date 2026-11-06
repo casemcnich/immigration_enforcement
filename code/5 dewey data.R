@@ -15,31 +15,57 @@ library('lubridate')
 library('vtable')
 library('sf')
 library('zoo')
-# for data download
-library('deweyr')
+library(keyring) # storing my API key 
+library(devtools)
+#devtools::install_github("Dewey-Data/deweydatar")
+library(deweydatar) # for downnload
+library(DBI)       # For database connections
+library(duckdb)    # For querying Parquet efficiently using SQL (filter before load)
 
-# setting the working directory -----------------------
+# prereqs -----------------------------
+#* load api ------------------
+# retrieve key
+api_key <- key_get(service = "dewey", username = "casemcnich")
+
+#* setting the working directory -----------------------
 setwd("C:/Users/casem/Box/immigration_enforcement")
 
 # load data -----------------
-
 # Download a specific date range
-#download_dewey(
-#  api_key = "your-api-key",
-#  folder_id = "abc123",
-#  partition_key_after = "2014-01-01",
-#  partition_key_before = "2019-01-01",
-#  download_path = 'C:/Users/casem/Box/immigration_enforcement/data'
-#)
-
-# dewey test data
-dewey <- read.csv("data/weekly-patterns-plus-sample.csv",
-                  stringsAsFactors = FALSE
+# run the download for advan
+download+dewey_duck(
+  api_key       = api_key,
+  folder_id     = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_fj8h3vikdjgfm9vvj",
+  download_path = "data",
+  partition_key_before = "2017-04-30",
+  partition_key_after = "2017-01-01",
+  num_workers = 16
 )
+
+# download for safegraph <3
+download_dewey_duck(
+  api_key   = api_key,
+  data_id   = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_rrncdwyc4khy77kmc",
+  output_dir = "data/poi-722",
+  partition = "REGION",
+  where     = "NAICS_CODE LIKE '722%'",
+  select    = c("PLACEKEY", "LOCATION_NAME", "BRANDS", "NAICS_CODE", "SUB_CATEGORY",
+                "TOP_CATEGORY", "STREET_ADDRESS", "CITY", "REGION", "POSTAL_CODE",
+                "LATITUDE", "LONGITUDE", "OPENED_ON", "CLOSED_ON", "OPEN_HOURS"),
+  overwrite = FALSE,
+  resume    = TRUE
+)
+
+
+# save the data 
+
+# load the data --------------------------------
+dewey <- readRDS("data/dewey_county_month.rds")
+dewey2 <- readRDS("data/test_restaurants.rds")
+
 
 # trac employment merged with nhgis data
 trac_wages <- load("data/total_wages_restaurant.rds")
-
 
 # dewey data cleaning ----------------------
 names(dewey) <- names(dewey) %>%
@@ -237,11 +263,30 @@ placekey <- placekey %>%
   filter(top_category == "Restaurants and Other Eating Places"
   )
 
+# check duplicates
+placekey %>%
+  count(placekey) %>%
+  filter(n > 1) %>%
+  arrange(desc(n))
+
 # merge all the data ------------------------------------------
 # merge dewey and linking data on store_id
 dewey_restaurants <- left_join(dewey_restaurants, linking, by = c("id_store" = "id_store"))
 
 # merge dewey and placekey on placekey
-dewey_restaurants <- left_join(dewey_restaurants, placekey, by = c("placekey" = "placekey"))
+dewey <- left_join(dewey, placekey, by = c("placekey" = "placekey"))
+
+# check that this worked well # crosswalk diagnostics ---------------------------------------
+
+# dewey records match the linking file
+dewey_restaurants %>%
+  summarise(
+    total = n(),
+    has_placekey = sum(!is.na(placekey)),
+    unique_places = n_distinct(placekey, na.rm = TRUE)
+  )
 
 # merge with foia + trac data ---------------------------------
+
+
+
