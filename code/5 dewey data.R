@@ -33,13 +33,12 @@ setwd("C:/Users/casem/Box/immigration_enforcement")
 # load data -----------------
 # Download a specific date range
 # run the download for advan
-download+dewey_duck(
-  api_key       = api_key,
-  folder_id     = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_fj8h3vikdjgfm9vvj",
-  download_path = "data",
-  partition_key_before = "2017-04-30",
-  partition_key_after = "2017-01-01",
-  num_workers = 16
+download_dewey_duck(
+  api_key    = api_key,
+  data_id    = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_fj8h3vikdjgfm9vvj",
+  output_dir = "data",
+  partition  = "DATE_RANGE_START",
+  where      = "DATE_RANGE_START >= '2017-01-01' AND DATE_RANGE_START <= '2017-02-01'"
 )
 
 # download for safegraph <3
@@ -55,7 +54,6 @@ download_dewey_duck(
   overwrite = FALSE,
   resume    = TRUE
 )
-
 
 # save the data 
 
