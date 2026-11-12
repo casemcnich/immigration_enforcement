@@ -15,12 +15,19 @@ library('lubridate')
 library('vtable')
 library('sf')
 library('zoo')
-library(keyring) # storing my API key 
-library(devtools)
+library('keyring') # storing my API key 
+library('devtools')
 #devtools::install_github("Dewey-Data/deweydatar")
-library(deweydatar) # for downnload
-library(DBI)       # For database connections
-library(duckdb)    # For querying Parquet efficiently using SQL (filter before load)
+library('deweydatar') # for downnload
+library('deweydatar') # for downnload
+library('DBI')       # For database connections
+library('duckdb')    # For querying Parquet efficiently using SQL (filter before load)
+library('arrow')
+library('deweyr')
+library(DBI)
+library(duckdb)
+library(dplyr)
+library(arrow)
 
 # prereqs -----------------------------
 #* load api ------------------
@@ -30,37 +37,60 @@ api_key <- key_get(service = "dewey", username = "casemcnich")
 #* setting the working directory -----------------------
 setwd("C:/Users/casem/Box/immigration_enforcement")
 
-# load data -----------------
-# Download a specific date range
-# run the download for advan
-download_dewey_duck(
-  api_key    = api_key,
-  data_id    = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_fj8h3vikdjgfm9vvj",
-  output_dir = "data",
-  partition  = "DATE_RANGE_START",
-  where      = "DATE_RANGE_START >= '2017-01-01' AND DATE_RANGE_START <= '2017-02-01'"
-)
+# safegraph
+# download_dewey(
+#  api_key = api_key,
+#  folder_id = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__cdst_b4wirxzskduijy6q",
+#  download_path = "C:/Users/casem/Box/immigration_enforcement/data"
+# )
 
-# download for safegraph <3
-download_dewey_duck(
-  api_key   = api_key,
-  data_id   = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_rrncdwyc4khy77kmc",
-  output_dir = "data/poi-722",
-  partition = "REGION",
-  where     = "NAICS_CODE LIKE '722%'",
-  select    = c("PLACEKEY", "LOCATION_NAME", "BRANDS", "NAICS_CODE", "SUB_CATEGORY",
-                "TOP_CATEGORY", "STREET_ADDRESS", "CITY", "REGION", "POSTAL_CODE",
-                "LATITUDE", "LONGITUDE", "OPENED_ON", "CLOSED_ON", "OPEN_HOURS"),
-  overwrite = FALSE,
-  resume    = TRUE
-)
+# advan
+# download_dewey(
+#  api_key = api_key,
+#  folder_id = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_fj8h3vikdjgfm9vvj",
+#  download_path = "C:/Users/casem/Box/immigration_enforcement/data"
+# )
 
-# save the data 
+# advan crosswalk
+# download_dewey(
+#  api_key = api_key,
+#  folder_id = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__fldr_r9ii66ei6xne4guyu",
+#  download_path = "C:/Users/casem/Box/immigration_enforcement/data"
+# )
 
 # load the data --------------------------------
+# set paths
+crosswalk_path <- "C:/Users/casem/Box/immigration_enforcement/data/crosswalk"
+safegraph_path <- "C:/Users/casem/Box/immigration_enforcement/data/safegraph"
+
+# open crosswalk
+lazy_crosswalk <- open_dataset(crosswalk_path, format = "parquet")
+crosswalk <- collect(lazy_crosswalk)
+
+
+# open safegraph
+lazy_safegraph <- open_dataset(safegraph_path, format = "parquet")
+safegraph <- collect(lazy_safegraph)
+
+# This folder should contain one or more .parquet files downloaded from Dewey.
+path <- "C:/Users/casem/Box/immigration_enforcement/data/weekly-patterns-plus"
+
+query <- paste0("
+   SELECT
+    PERSISTENT_ID,
+    PERSISTENT_ID_STORE,
+    DATE_RANGE_START,
+    DATE_RANGE_END,
+    VISITS_BY_EACH_HOUR,
+    NAICS_CODE
+  FROM read_parquet('", path, "/*.parquet')
+  -- Example filters (remove the -- from the lines below to activate filters):
+  -- WHERE state = 'WA'
+  -- AND naics_code = '448120'
+")
+
 dewey <- readRDS("data/dewey_county_month.rds")
 dewey2 <- readRDS("data/test_restaurants.rds")
-
 
 # trac employment merged with nhgis data
 trac_wages <- load("data/total_wages_restaurant.rds")
