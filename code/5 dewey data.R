@@ -38,11 +38,11 @@ api_key <- key_get(service = "dewey", username = "casemcnich")
 setwd("C:/Users/casem/Box/immigration_enforcement")
 
 # safegraph
-# download_dewey(
-#  api_key = api_key,
-#  folder_id = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__cdst_b4wirxzskduijy6q",
-#  download_path = "C:/Users/casem/Box/immigration_enforcement/data"
-# )
+ download_dewey(
+  api_key = api_key,
+  folder_id = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__cdst_b4wirxzskduijy6q",
+  download_path = "C:/Users/casem/Box/immigration_enforcement/data"
+ )
 
 # advan
 # download_dewey(
@@ -61,33 +61,27 @@ setwd("C:/Users/casem/Box/immigration_enforcement")
 # load the data --------------------------------
 # set paths
 crosswalk_path <- "C:/Users/casem/Box/immigration_enforcement/data/crosswalk"
-safegraph_path <- "C:/Users/casem/Box/immigration_enforcement/data/safegraph"
+safegraph_path <- "C:/Users/casem/Box/immigration_enforcement/data/filtered-to-us"
+veraset_path <- "C:/Users/casem/Box/immigration_enforcement/data/filtered-to-us"
 
-# open crosswalk
-lazy_crosswalk <- open_dataset(crosswalk_path, format = "parquet")
-crosswalk <- collect(lazy_crosswalk)
+# open places
+data <- open_dataset(safegraph_path, format = "parquet") |>
+  filter(NAICS_CODE %in% c("722513", "722511")) |>
+  collect()
+
+# open some of crosswalk
+crosswalk <- open_dataset(crosswalk_path, format = "parquet") |>
+  filter(NAICS_CODE %in% c("722513", "722511")) |>
+  collect()
 
 
-# open safegraph
-lazy_safegraph <- open_dataset(safegraph_path, format = "parquet")
-safegraph <- collect(lazy_safegraph)
+# open some of veraset
+data <- open_dataset(veraset_path, format = "parquet") |>
+  filter(NAICS_CODE %in% c("722513", "722511")) |>
+  collect()
 
-# This folder should contain one or more .parquet files downloaded from Dewey.
-path <- "C:/Users/casem/Box/immigration_enforcement/data/weekly-patterns-plus"
 
-query <- paste0("
-   SELECT
-    PERSISTENT_ID,
-    PERSISTENT_ID_STORE,
-    DATE_RANGE_START,
-    DATE_RANGE_END,
-    VISITS_BY_EACH_HOUR,
-    NAICS_CODE
-  FROM read_parquet('", path, "/*.parquet')
-  -- Example filters (remove the -- from the lines below to activate filters):
-  -- WHERE state = 'WA'
-  -- AND naics_code = '448120'
-")
+
 
 dewey <- readRDS("data/dewey_county_month.rds")
 dewey2 <- readRDS("data/test_restaurants.rds")
@@ -132,7 +126,9 @@ dewey_restaurants <- dewey_restaurants %>%
     # 5-20 minutes
     dwell_5_20 = as.numeric(
       str_extract(bucketed_dwell_times, "(?<=5-20\":)\\d+")
-    ),
+    ),# open safegraph
+lazy_safegraph <- open_dataset(safegraph_path, format = "parquet")
+safegraph <- collect(lazy_safegraph)
     
     # 21-60 min
     dwell_21_60 = as.numeric(
