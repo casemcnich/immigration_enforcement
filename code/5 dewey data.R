@@ -6,32 +6,34 @@
 ##########################################
 
 # loading packages -----------------------------
-library('jsonlite')
+# download and loading specific 
+library('keyring')    # storing my API key
+library('devtools') # to get the dewey package 
+#devtools::install_github("Dewey-Data/deweydatar")
+library('deweydatar') # for download
+library('deweyr') # for download
+library('DBI') # database connections
+library('duckdb') # query Parquet with SQL (filter before load)
+library('arrow') # filtering 
+
+# data manipulation 
 library('stringr')
 library('tidyr')
 library('dplyr')
-library('usdata')
 library('lubridate')
 library('vtable')
 library('sf')
 library('zoo')
-library('keyring')    # storing my API key
-library('devtools')
-#devtools::install_github("Dewey-Data/deweydatar")
-library('deweydatar') # for download
-library('deweyr')
-library('DBI')        # database connections
-library('duckdb')     # query Parquet with SQL (filter before load)
-library('arrow')
+library('data.table') 
 
-# prereqs -----------------------------
+# prerecs -----------------------------
 #* load api ------------------
 api_key <- key_get(service = "dewey", username = "casemcnich")
 
 #* setting the working directory -----------------------
 setwd("C:/Users/casem/Box/immigration_enforcement")
 
-# downloads (run once, then leave commented out) -----------------
+# downloads -----------------
 # safegraph
 # download_dewey(
 #  api_key = api_key,
@@ -103,23 +105,17 @@ data <- dbGetQuery(con, sprintf("
 
 dbDisconnect(con, shutdown = TRUE)
 
-#* load ICE data -----------------------------
-# trac employment merged with nhgis data
-trac_wages <- load("data/total_wages_restaurant.rds")
-
 # check what everything looks like ---------
-names(safegraph)
+
+#* Crosswalk ----------------------------
+# check names
 names(crosswalk)
-names(data)
-
-# sample rows
-head(safegraph, 3)
 head(crosswalk, 3)
-head(data, 3)
 
-# Crosswalk 
+# convert to datatable
 setDT(crosswalk)
-# Overall summary
+
+# overall summary
 crosswalk[, .(
   observations = .N,
   unique_stores = uniqueN(ID_STORE),
@@ -137,6 +133,7 @@ crosswalk[, .N, by = ID_STORE][N > 1]
 crosswalk[ID_STORE %in% c(
   12683373, 12683403, 12683404
 )]
+
 # note on this: Also note that a placekey can occasionally map to multiple store IDs
 # due to POI restatements, so de-duplicate as needed.
 # Spend covers US POIs only, so non-US locations won't match.
@@ -145,7 +142,76 @@ crosswalk[, .N, by = PLACEKEY][N > 1]
 # duplicate rows
 crosswalk[duplicated(crosswalk)]
 
-# dewey data cleaning ----------------------
+#* Safegraph  ----------------------------
+# check names
+names(safegraph)
+head(safegraph, 3)
+
+# convert to datatable
+setDT(safegraph)
+
+# overall summary
+safegraph[, .(
+  observations = .N,
+  unique_stores = uniqueN(STORE_ID),
+  unique_placekeys = uniqueN(PLACEKEY),
+  missing_stores = sum(is.na(STORE_ID)),
+  missing_placekeys = sum(is.na(PLACEKEY))
+)]
+
+# duplicates
+# there are likewise 22078 duplcate store IDs in this data
+# more than one placekey per store
+safegraph[, .N, by = STORE_ID][N > 1]
+# check on these too
+safegraph[STORE_ID %in% c(
+  18701, 70004, 45537
+)]
+# these ones are very different ??
+
+# more than one store per placekey
+safegraph[, .N, by = PLACEKEY][N > 1]
+# duplicate rows
+safegraph[duplicated(safegraph)]
+
+#* advan  ----------------------------
+# convert to datatable
+setDT(data)
+# check names
+names(data)
+head(data, 3)
+
+# overall summary
+data[, .(
+  observations = .N,
+  unique_stores = uniqueN(ID_STORE ),
+  missing_stores = sum(is.na(ID_STORE ))
+)]
+
+# this kinda makes sense because there should be repeated observations
+# duplicates
+data[, .N, by = ID_STORE][N > 1]
+
+# duplicate rows
+safegraph[duplicated(safegraph)]
+
+# merging data -----------------------------------------------
+# the way that we merge is going to be 
+# safegraph -> crosswalk -> dewey
+
+# merging safegraph and crosswalk and strip away everything that we dont need
+crosswalk <- safegraph[crosswalk, .(LOCATION_NAME, ISO_COUNTRY_CODE, STORE_ID, PLACEKEY, NAICS_CODE, OPEN_HOURS), on = .(PLACEKEY)]
+# checking coverage 
+crosswalk[, .(
+  observations = .N,
+  unique_location = uniqueN(LOCATION_NAME ),
+  missing_location = sum(is.na(LOCATION_NAME ))
+)]
+
+# merge with dewey data
+data <- crosswalk[data, on = .(STORE_ID)]
+
+# dewey data cleaning and checking----------------------
 # trim the dewey names
 names(data) <- names(data) %>%
   str_trim()
@@ -202,6 +268,9 @@ safegraph <- collect(lazy_safegraph)
       str_extract(bucketed_dwell_times, '(?<=">240":)\\d+')
     )
   )
+#* load ICE data -----------------------------
+# trac employment merged with nhgis data
+trac_wages <- load("data/total_wages_restaurant.rds")
 
 #* summary stats -----------------------------
 dewey_restaurants <- dewey_restaurants %>%
