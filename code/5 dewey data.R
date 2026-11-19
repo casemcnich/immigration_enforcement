@@ -5,7 +5,7 @@
 # last modified on 9.30.26
 ##########################################
 
-#loading packages
+# loading packages -----------------------------
 library('jsonlite')
 library('stringr')
 library('tidyr')
@@ -15,34 +15,29 @@ library('lubridate')
 library('vtable')
 library('sf')
 library('zoo')
-library('keyring') # storing my API key 
+library('keyring')    # storing my API key
 library('devtools')
 #devtools::install_github("Dewey-Data/deweydatar")
-library('deweydatar') # for downnload
-library('deweydatar') # for downnload
-library('DBI')       # For database connections
-library('duckdb')    # For querying Parquet efficiently using SQL (filter before load)
-library('arrow')
+library('deweydatar') # for download
 library('deweyr')
-library(DBI)
-library(duckdb)
-library(dplyr)
-library(arrow)
+library('DBI')        # database connections
+library('duckdb')     # query Parquet with SQL (filter before load)
+library('arrow')
 
 # prereqs -----------------------------
 #* load api ------------------
-# retrieve key
 api_key <- key_get(service = "dewey", username = "casemcnich")
 
 #* setting the working directory -----------------------
 setwd("C:/Users/casem/Box/immigration_enforcement")
 
+# downloads (run once, then leave commented out) -----------------
 # safegraph
- download_dewey(
-  api_key = api_key,
-  folder_id = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__cdst_b4wirxzskduijy6q",
-  download_path = "C:/Users/casem/Box/immigration_enforcement/data"
- )
+# download_dewey(
+#  api_key = api_key,
+#  folder_id = "https://api.deweydata.io/api/v1/external/data/prj_38wd7r98__cdst_b4wirxzskduijy6q",
+#  download_path = "C:/Users/casem/Box/immigration_enforcement/data"
+# )
 
 # advan
 # download_dewey(
@@ -59,33 +54,56 @@ setwd("C:/Users/casem/Box/immigration_enforcement")
 # )
 
 # load the data --------------------------------
-# set paths
-crosswalk_path <- "C:/Users/casem/Box/immigration_enforcement/data/crosswalk"
-safegraph_path <- "C:/Users/casem/Box/immigration_enforcement/data/filtered-to-us"
-veraset_path <- "C:/Users/casem/Box/immigration_enforcement/data/filtered-to-us"
+rm(list = ls())   # remove all objects from the environment
+gc()              # garbage collect
 
-# open places
-data <- open_dataset(safegraph_path, format = "parquet") |>
-  filter(NAICS_CODE %in% c("722513", "722511")) |>
-  collect()
+#* paths -----------------------------
+base_path      <- "C:/Users/casem/Box/immigration_enforcement/data"
+crosswalk_path <- file.path(base_path, "crosswalk")
+safegraph_path <- file.path(base_path, "filtered-to-us")
+veraset_path   <- file.path(base_path, "weekly-patterns-plus")
 
-# open some of crosswalk
-crosswalk <- open_dataset(crosswalk_path, format = "parquet") |>
-  filter(NAICS_CODE %in% c("722513", "722511")) |>
-  collect()
+# check what is actually in the safegraph folder
+fs <- list.files(safegraph_path, full.names = TRUE, pattern = "parquet$")
+info <- file.info(fs)
+data.frame(file = basename(fs), mb = round(info$size / 1e6, 1))
+length(fs)
 
+#* connect to duckdb -----------------------------
+# memory_limit: roughly half your RAM, so R keeps some for itself
+con <- dbConnect(duckdb())
+dbExecute(con, "SET memory_limit = '6GB'")
+dbExecute(con, "SET temp_directory = 'C:/duck_tmp'")   # spill folder, kept off Box
 
-# open some of veraset
-data <- open_dataset(veraset_path, format = "parquet") |>
-  filter(NAICS_CODE %in% c("722513", "722511")) |>
-  collect()
+#* open places -----------------------------
+# duckdb filters first, so only restaurant rows come into R
+safegraph <- dbGetQuery(con, sprintf("
+  SELECT *
+  FROM read_parquet('%s/*.parquet')
+  WHERE CAST(NAICS_CODE AS VARCHAR) IN ('722513', '722511')",
+                                     safegraph_path))
 
+#* open crosswalk -----------------------------
+crosswalk <- dbGetQuery(con, sprintf(
+  "SELECT * FROM read_parquet('%s/*.parquet')", crosswalk_path))
 
+#* open veraset -----------------------------
+# light columns only. The big text columns are what usually run you out of memory.
+# To add one back, copy its name into the SELECT list:
+#   VISITS_BY_DAY, VISITS_BY_EACH_HOUR, VISITOR_COUNTRY_OF_ORIGIN,
+#   VISITOR_HOME_AGGREGATION, BUCKETED_DWELL_TIMES
+data <- dbGetQuery(con, sprintf("
+  SELECT ID_STORE, NAICS_CODE, POSTAL_CODE,
+         DATE_RANGE_START, DATE_RANGE_END,
+         VISIT_COUNTS, VISITOR_COUNTS, MEDIAN_DWELL, DEVICE_TYPE, VISITS_BY_EACH_HOUR
+  FROM read_parquet('%s/**/*.parquet')
+  WHERE CAST(NAICS_CODE AS VARCHAR) = '722513'
+    AND CAST(DATE_RANGE_END AS DATE) <= DATE '2018-12-31'",
+                                veraset_path))
 
+dbDisconnect(con, shutdown = TRUE)
 
-dewey <- readRDS("data/dewey_county_month.rds")
-dewey2 <- readRDS("data/test_restaurants.rds")
-
+#* load ICE data -----------------------------
 # trac employment merged with nhgis data
 trac_wages <- load("data/total_wages_restaurant.rds")
 
