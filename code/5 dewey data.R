@@ -107,8 +107,47 @@ dbDisconnect(con, shutdown = TRUE)
 # trac employment merged with nhgis data
 trac_wages <- load("data/total_wages_restaurant.rds")
 
+# check what everything looks like ---------
+names(safegraph)
+names(crosswalk)
+names(data)
+
+# sample rows
+head(safegraph, 3)
+head(crosswalk, 3)
+head(data, 3)
+
+# Crosswalk 
+setDT(crosswalk)
+# Overall summary
+crosswalk[, .(
+  observations = .N,
+  unique_stores = uniqueN(ID_STORE),
+  unique_placekeys = uniqueN(PLACEKEY),
+  missing_stores = sum(is.na(ID_STORE)),
+  missing_placekeys = sum(is.na(PLACEKEY))
+)]
+
+# duplicates
+# more than one placekey per store
+# 525351 stores with multiple placekeys?
+crosswalk[, .N, by = ID_STORE][N > 1]
+
+# these map to placekeys with like ~1 digit off?
+crosswalk[ID_STORE %in% c(
+  12683373, 12683403, 12683404
+)]
+# note on this: Also note that a placekey can occasionally map to multiple store IDs
+# due to POI restatements, so de-duplicate as needed.
+# Spend covers US POIs only, so non-US locations won't match.
+# more than one store per placekey
+crosswalk[, .N, by = PLACEKEY][N > 1]
+# duplicate rows
+crosswalk[duplicated(crosswalk)]
+
 # dewey data cleaning ----------------------
-names(dewey) <- names(dewey) %>%
+# trim the dewey names
+names(data) <- names(data) %>%
   str_trim()
 
 #* keep restaurant observations -------------------------------
